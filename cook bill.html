@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpiceSync Pro - Elite Catering Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: 'var(--color-primary)', 
+                        primaryDark: 'var(--color-primary-dark)', 
+                        secondary: '#f59e0b',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* Dynamic Theme Colors */
+        :root {
+            --color-primary: #10b981; /* Default Emerald */
+            --color-primary-dark: #047857;
+        }
+        .theme-blue { --color-primary: #3b82f6; --color-primary-dark: #1d4ed8; }
+        .theme-rose { --color-primary: #f43f5e; --color-primary-dark: #be123c; }
+        .theme-violet { --color-primary: #8b5cf6; --color-primary-dark: #6d28d9; }
+        .theme-orange { --color-primary: #f97316; --color-primary-dark: #c2410c; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Navigation styling */
+        .nav-item.active { background-color: color-mix(in srgb, var(--color-primary) 15%, transparent); color: var(--color-primary-dark); font-weight: 600; border-left: 4px solid var(--color-primary); }
+        .dark .nav-item.active { background-color: color-mix(in srgb, var(--color-primary) 20%, transparent); color: var(--color-primary); border-left: 4px solid var(--color-primary); }
+        .nav-item-mobile.active { color: var(--color-primary); }
+        .dark .nav-item-mobile.active { color: var(--color-primary); }
+
+        /* Toast styling */
+        #toast-container { position: fixed; bottom: 80px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        @media (min-width: 768px) { #toast-container { bottom: 20px; } }
+        .toast { padding: 12px 20px; border-radius: 8px; color: white; opacity: 0; transform: translateY(20px); transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.1); pointer-events: auto; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background-color: var(--color-primary); } 
+        .toast.warning { background-color: #f59e0b; } 
+        .toast.danger { background-color: #ef4444; } 
+        .toast.info { background-color: #3b82f6; }
+
+        /* Utilities */
+        .hidden-view { display: none !important; }
+        .item-row { animation: slideIn 0.2s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Kanban / KDS */
+        .kds-col { min-height: 400px; }
+
+        /* Invoice Templates */
+        #invoice-paper { transition: all 0.3s ease; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: white; position: relative; overflow: hidden; }
+        .watermark-stamp { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 8rem; font-weight: 900; opacity: 0.05; text-transform: uppercase; pointer-events: none; z-index: 0; letter-spacing: 0.2em; border: 8px solid; padding: 20px 40px; border-radius: 20px; display: none; }
+        
+        .template-standard .inv-header-section { border-bottom: 1px solid #d1d5db; }
+        .template-standard table thead tr { border-top: 2px solid #1f2937; border-bottom: 2px solid #1f2937; background-color: #f9fafb; }
+        .template-modern .inv-content-wrapper { padding: 0 !important; }
+        .template-modern .inv-header-section { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); padding: 3rem 4rem; color: white; margin-bottom: 2rem; border: none; }
+        .template-modern .inv-header-section * { color: white; }
+        .template-modern .inv-header-section .text-gray-600, .template-modern .inv-header-section .text-gray-500 { color: rgba(255,255,255,0.8) !important; }
+        .template-modern .inv-inner-content { padding: 0 4rem 4rem 4rem; z-index: 1; position: relative; }
+        .template-modern table thead tr { background-color: var(--color-primary); border: none; } .template-modern table thead th { color: white; }
+        
+        .template-minimal { font-family: 'Courier New', Courier, monospace; }
+        .template-minimal .inv-header-section { border-bottom: 2px dashed #9ca3af; padding-bottom: 2rem; }
+        .template-minimal .inv-brand-icon { display: none; }
+        
+        .template-premium { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111827; }
+        .template-premium .inv-header-section { border-bottom: 4px solid #0f172a; padding-bottom: 2.5rem; margin-bottom: 2.5rem; }
+        
+        #inv-barcode { max-width: 100%; height: auto; } 
+        .template-modern #inv-barcode path { stroke: white !important; } 
+        .template-modern #inv-barcode rect { fill: transparent !important; }
+
+        /* Thermal Mode Layout */
+        .print-thermal-mode #invoice-paper { width: 80mm !important; max-width: 80mm !important; padding: 5mm !important; box-shadow: none !important; border: none !important; font-family: monospace !important; font-size: 12px !important; }
+        .print-thermal-mode .inv-content-wrapper { padding: 0 !important; }
+        .print-thermal-mode .inv-header-section { flex-direction: column !important; align-items: center !important; text-align: center !important; border-bottom: 1px dashed black !important; padding: 0 0 10px 0 !important; margin-bottom: 10px !important; background: transparent !important; }
+        .print-thermal-mode .inv-header-section > div { width: 100% !important; text-align: center !important; }
+        .print-thermal-mode .inv-header-section * { color: black !important; }
+        .print-thermal-mode .inv-brand-icon, .print-thermal-mode .watermark-stamp, .print-thermal-mode svg { display: none !important; }
+        .print-thermal-mode table thead tr { background-color: transparent !important; border-top: 1px dashed black; border-bottom: 1px dashed black; }
+        .print-thermal-mode table th, .print-thermal-mode table td { padding: 2px !important; font-size: 10px !important; }
+        .print-thermal-mode .inv-totals-section { width: 100% !important; border-top: 1px dashed black !important; padding-top: 5px !important; margin-bottom: 5px !important; background: transparent !important;}
+        .print-thermal-mode .inv-customer-section { background: transparent !important; border: 1px dashed black !important; padding: 5px !important; margin-bottom: 10px !important; }
+        .print-thermal-mode .inv-footer-section { flex-direction: column; text-align: center; font-size: 10px !important; }
+        .print-thermal-mode .inv-footer-section > div { width: 100% !important; text-align: center !important; margin-bottom: 5px; }
+
+        /* Print Settings */
+        @media print {
+            body { background: white !important; color: black !important; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            
+            /* General Print Mode (Invoices) */
+            body:not(.print-report-mode) * { visibility: hidden; }
+            body:not(.print-report-mode) #invoice-modal, body:not(.print-report-mode) #invoice-modal * { visibility: visible; }
+            body:not(.print-report-mode) #invoice-modal { position: absolute; left: 0; top: 0; width: 100%; height: auto; background: transparent; box-shadow: none; transform: none !important; padding: 0 !important; }
+            body:not(.print-report-mode) #invoice-paper { box-shadow: none !important; margin: 0 !important; min-height: auto !important; border:none!important;}
+            body:not(.print-report-mode):not(.print-thermal-mode) #invoice-paper { width: 100% !important; max-width: 100% !important; }
+            
+            /* Professional Report Print Mode */
+            body.print-report-mode > div > aside, body.print-report-mode > div > header, body.print-report-mode nav { display: none !important; }
+            body.print-report-mode .report-controls { display: none !important; }
+            body.print-report-mode #main-scroll-area { padding: 0 !important; overflow: visible !important; }
+            body.print-report-mode #view-reports { display: block !important; width: 100%; }
+            body.print-report-mode #report-results-container { box-shadow: none; border: none; padding: 0 !important; margin: 0 !important; width: 100% !important; }
+            body.print-report-mode .print-rep-header { display: block !important; }
+        }
+        
+        #reader video { border-radius: 0.5rem; object-fit: cover; }
+        
+        /* App Lock Screen */
+        #app-lock-screen { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.98); z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+        .pin-dot { width: 1rem; height: 1rem; border-radius: 50%; background: #374151; margin: 0 8px; transition: all 0.2s; }
+        .pin-dot.filled { background: var(--color-primary); box-shadow: 0 0 10px var(--color-primary); }
+
+        /* FAB Menu */
+        .fab-menu { transform: scale(0); opacity: 0; transition: all 0.2s ease-in-out; transform-origin: bottom right; pointer-events: none; }
+        .fab-container:hover .fab-menu, .fab-menu.active { transform: scale(1); opacity: 1; pointer-events: auto; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+
+    <!-- 1. APP LOCK SCREEN -->
+    <div id="app-lock-screen" class="hidden-view text-white">
+        <div class="mb-8 text-center">
+            <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-[0_0_20px_var(--color-primary)]"><i class="fa-solid fa-lock"></i></div>
+            <h2 class="text-2xl font-bold tracking-widest">APP LOCKED</h2>
+            <p class="text-gray-400 mt-2">Enter PIN to access SpiceSync Pro</p>
+        </div>
+        <div class="flex mb-8" id="pin-dots-container">
+            <div class="pin-dot" id="dot-1"></div><div class="pin-dot" id="dot-2"></div><div class="pin-dot" id="dot-3"></div><div class="pin-dot" id="dot-4"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-4 max-w-xs">
+            <button onclick="enterPin(1)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">1</button>
+            <button onclick="enterPin(2)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">2</button>
+            <button onclick="enterPin(3)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">3</button>
+            <button onclick="enterPin(4)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">4</button>
+            <button onclick="enterPin(5)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">5</button>
+            <button onclick="enterPin(6)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">6</button>
+            <button onclick="enterPin(7)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">7</button>
+            <button onclick="enterPin(8)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">8</button>
+            <button onclick="enterPin(9)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">9</button>
+            <button onclick="clearPin()" class="w-16 h-16 rounded-full bg-gray-800 text-red-400 hover:bg-gray-700 text-xl font-bold transition"><i class="fa-solid fa-delete-left"></i></button>
+            <button onclick="enterPin(0)" class="w-16 h-16 rounded-full bg-gray-800 hover:bg-gray-700 text-xl font-bold transition">0</button>
+        </div>
+        <p id="pin-error" class="text-red-500 mt-6 h-6 font-bold tracking-wide"></p>
+    </div>
+
+    <!-- 2. QUICK ADD FAB -->
+    <div class="fixed bottom-24 md:bottom-10 right-6 z-50 fab-container no-print">
+        <div class="fab-menu absolute bottom-16 right-0 flex flex-col gap-3 items-end">
+            <button onclick="switchView('income'); toggleIncomeForm()" class="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg px-4 py-2 rounded-full text-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition font-bold text-sm whitespace-nowrap">
+                <span class="bg-blue-100 dark:bg-blue-900/30 p-1 rounded-full w-6 h-6 flex items-center justify-center"><i class="fa-solid fa-coins"></i></span> Revenue
+            </button>
+            <button onclick="switchView('expenses'); toggleExpenseForm()" class="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg px-4 py-2 rounded-full text-red-500 hover:bg-red-50 dark:hover:bg-gray-700 transition font-bold text-sm whitespace-nowrap">
+                <span class="bg-red-100 dark:bg-red-900/30 p-1 rounded-full w-6 h-6 flex items-center justify-center"><i class="fa-solid fa-minus"></i></span> Expense
+            </button>
+            <button onclick="switchView('orders'); toggleOrderForm()" class="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg px-4 py-2 rounded-full text-primary hover:bg-green-50 dark:hover:bg-gray-700 transition font-bold text-sm whitespace-nowrap">
+                <span class="bg-green-100 dark:bg-green-900/30 p-1 rounded-full w-6 h-6 flex items-center justify-center"><i class="fa-solid fa-file-invoice"></i></span> Invoice
+            </button>
+        </div>
+        <button onclick="document.querySelector('.fab-menu').classList.toggle('active')" class="w-14 h-14 bg-primary hover:bg-primaryDark text-white rounded-full shadow-lg flex items-center justify-center text-2xl transition-transform hover:scale-105 active:scale-95"><i class="fa-solid fa-bolt"></i></button>
+    </div>
+
+    <!-- 3. MAIN APP LAYOUT -->
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Desktop Sidebar -->
+        <aside class="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-sm z-10 transition-colors no-print">
+            <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-primary to-primaryDark rounded-lg flex items-center justify-center text-white text-xl shadow-md"><i class="fa-solid fa-utensils"></i></div>
+                <h1 class="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white">SpiceSync <span class="text-primary text-sm font-bold">PRO</span></h1>
+            </div>
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1">
+                    <li><button onclick="switchView('dashboard')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3 active" id="nav-dashboard"><i class="fa-solid fa-chart-pie w-5"></i> Dashboard</button></li>
+                    <li><button onclick="switchView('orders')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-orders"><i class="fa-solid fa-file-invoice-dollar w-5"></i> Orders & Invoices</button></li>
+                    <li><button onclick="switchView('kitchen')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-kitchen"><i class="fa-solid fa-fire-burner w-5"></i> Kitchen (KDS)</button></li>
+                    <li><button onclick="switchView('customers')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-customers"><i class="fa-solid fa-users w-5"></i> CRM & Directory</button></li>
+                    <li class="my-2 border-t border-gray-100 dark:border-gray-700"></li>
+                    <li><button onclick="switchView('income')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-income"><i class="fa-solid fa-coins w-5"></i> Other Revenue</button></li>
+                    <li><button onclick="switchView('expenses')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-expenses"><i class="fa-solid fa-wallet w-5"></i> Expenses</button></li>
+                    <li><button onclick="switchView('reports')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-reports"><i class="fa-solid fa-chart-line w-5"></i> Financial Reports</button></li>
+                    <li class="my-2 border-t border-gray-100 dark:border-gray-700"></li>
+                    <li><button onclick="switchView('settings')" class="nav-item w-full text-left px-6 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-3" id="nav-settings"><i class="fa-solid fa-gear w-5"></i> Settings</button></li>
+                </ul>
+            </nav>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                <div class="text-xs text-gray-400 text-center mb-2 flex justify-center gap-2"><span title="Alt+N: New Order" class="cursor-help bg-gray-100 dark:bg-gray-700 px-1 rounded">Alt+N</span> <span title="Alt+D: Dashboard" class="cursor-help bg-gray-100 dark:bg-gray-700 px-1 rounded">Alt+D</span> <span title="Alt+E: New Exp" class="cursor-help bg-gray-100 dark:bg-gray-700 px-1 rounded">Alt+E</span></div>
+                <button onclick="toggleTheme()" class="w-full py-2 px-4 rounded-md border border-gray-300 dark:border-gray-600 text-sm flex items-center justify-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i><i class="fa-solid fa-sun hidden dark:inline"></i><span id="theme-text">Dark Mode</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+            
+            <!-- Mobile Header -->
+            <header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center shadow-sm z-10 no-print">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-gradient-to-br from-primary to-primaryDark rounded flex items-center justify-center text-white"><i class="fa-solid fa-utensils text-sm"></i></div>
+                    <h1 class="text-lg font-bold text-gray-900 dark:text-white">SpiceSync</h1>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="startBarcodeScanner()" class="text-gray-500 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center shadow-sm text-primary"><i class="fa-solid fa-qrcode"></i></button>
+                    <button onclick="toggleTheme()" class="text-gray-500 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center"><i class="fa-solid fa-moon dark:hidden"></i><i class="fa-solid fa-sun hidden dark:inline"></i></button>
+                </div>
+            </header>
+
+            <!-- Scrollable Content Area -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8" id="main-scroll-area">
+                
+                <!-- VIEW: DASHBOARD -->
+                <div id="view-dashboard" class="view-section no-print">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Dashboard</h2>
+                        <div class="flex items-center gap-4">
+                            <!-- Revenue Target Tracker -->
+                            <div class="hidden md:flex flex-col items-end mr-4">
+                                <span class="text-xs text-gray-500 dark:text-gray-400 mb-1">Monthly Target (<span class="sys-curr"></span><span id="target-max">0</span>)</span>
+                                <div class="w-48 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                    <div id="target-progress" class="h-full bg-primary transition-all duration-1000" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span class="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full"><i class="fa-regular fa-calendar-check"></i> <span id="current-date">Today</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Out of Stock Warning -->
+                    <div id="dash-stock-warning" class="hidden-view mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-0.5"></i>
+                        <div>
+                            <h4 class="font-bold text-red-800 dark:text-red-400">Low Stock Alert</h4>
+                            <p class="text-sm text-red-600 dark:text-red-300 mt-1" id="dash-stock-list"></p>
+                        </div>
+                    </div>
+
+                    <!-- Top Metrics -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6 mb-8">
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-blue-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Gross Revenue (Today)</p>
+                            <h3 class="text-3xl font-bold text-gray-800 dark:text-white"><span class="sys-curr"></span><span id="dash-sales-today">0</span></h3>
+                            <p class="text-xs text-blue-500 mt-2"><span id="dash-orders-count">0</span> invoices generated</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-red-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Total Expenses (Today)</p>
+                            <h3 class="text-3xl font-bold text-gray-800 dark:text-white"><span class="sys-curr"></span><span id="dash-exp-today">0</span></h3>
+                            <p class="text-xs text-red-500 mt-2"><span id="dash-exp-count">0</span> transactions</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-green-500 relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 opacity-10 text-7xl text-green-500"><i class="fa-solid fa-wallet"></i></div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Net Profit (Today)</p>
+                            <h3 class="text-3xl font-bold text-gray-800 dark:text-white" id="dash-profit-today-container"><span class="sys-curr"></span><span id="dash-profit-today">0</span></h3>
+                            <p class="text-xs text-green-600 mt-2">Revenue minus expenses</p>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 border-l-4 border-l-yellow-500 relative">
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1 flex items-center justify-between">Pending Dues <i class="fa-solid fa-circle-exclamation text-yellow-500"></i></p>
+                            <h3 class="text-3xl font-bold text-gray-800 dark:text-white"><span class="sys-curr"></span><span id="dash-dues-total">0</span></h3>
+                            <p class="text-xs text-yellow-600 mt-2"><span id="dash-dues-count">0</span> pending invoices</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts & Recent Activity -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 space-y-6">
+                            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-4">Last 7 Days Trend</h3>
+                                <div class="h-64 w-full"><canvas id="financeChart"></canvas></div>
+                            </div>
+                            
+                            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-4"><i class="fa-solid fa-bolt text-yellow-500"></i> Recent Activity</h3>
+                                <ul id="activity-log" class="space-y-3 text-sm divide-y divide-gray-100 dark:divide-gray-700"></ul>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-2">Expense Breakdown (30 Days)</h3>
+                                <div class="h-48 w-full relative"><canvas id="expensePieChart"></canvas></div>
+                            </div>
+                            <div class="bg-gradient-to-br from-amber-400 to-orange-500 p-5 rounded-xl shadow-sm text-white relative overflow-hidden">
+                                <i class="fa-solid fa-award absolute right-2 -bottom-4 text-7xl opacity-20"></i>
+                                <h3 class="font-bold mb-1">Best Selling Dish</h3>
+                                <p class="text-2xl font-extrabold drop-shadow-sm truncate" id="dash-best-dish">Loading...</p>
+                                <p class="text-sm opacity-90 mt-1"><span id="dash-best-dish-count">0</span> Portions Sold</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: ORDERS -->
+                <div id="view-orders" class="view-section hidden-view no-print">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Invoices & Orders</h2>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button onclick="bulkDeleteOrders()" id="btn-bulk-delete" class="hidden flex-1 md:flex-none bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-trash"></i> <span class="hidden sm:inline">Delete Selected</span>
+                            </button>
+                            <button onclick="startBarcodeScanner()" class="flex-1 md:flex-none bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-qrcode"></i> <span>Scan</span>
+                            </button>
+                            <button onclick="toggleOrderForm()" class="flex-1 md:flex-none bg-primary hover:bg-primaryDark text-white px-4 py-2 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Create Invoice</span><span class="sm:hidden">New</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="order-form-container" class="hidden-view bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 mb-6 transition-all">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2 dark:border-gray-700 dark:text-white">Invoice Details</h3>
+                        <form id="orderForm" class="space-y-4">
+                            <input type="hidden" id="orderId">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div class="col-span-1 md:col-span-12"><h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">1. Client Info</h4></div>
+                                
+                                <div class="col-span-1 md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name *</label>
+                                    <input type="text" id="orderName" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white" placeholder="John Doe">
+                                </div>
+                                <div class="col-span-1 md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number *</label>
+                                    <div class="flex gap-2">
+                                        <input type="tel" id="orderPhone" required class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white" placeholder="10-digit number" onblur="checkRepeatCustomer()">
+                                        <button type="button" id="btn-contact-picker" onclick="pickContact()" class="hidden-view px-3 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md text-primary hover:bg-gray-50 transition" title="Pick from Contacts"><i class="fa-solid fa-address-book"></i></button>
+                                    </div>
+                                    <p id="repeat-customer-badge" class="hidden-view text-xs text-primary mt-1 font-bold"><i class="fa-solid fa-star"></i> Repeat Customer!</p>
+                                </div>
+                                <div class="col-span-1 md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Event/Delivery Address</label>
+                                    <input type="text" id="orderArea" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white" placeholder="e.g. Downtown Hall">
+                                </div>
+                                <div class="col-span-1 md:col-span-4">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Order Type</label>
+                                    <select id="orderType" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                        <option value="Delivery">Delivery</option><option value="Takeaway">Takeaway</option><option value="Dine-in">Dine-in</option><option value="Catering">Catering Event</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">2. Items & Services</h4>
+                                <div id="order-items-container" class="space-y-3"></div>
+                                <button type="button" onclick="addOrderItemRow()" class="mt-3 text-sm text-primary hover:text-primaryDark font-medium flex items-center gap-1">
+                                    <i class="fa-solid fa-circle-plus"></i> Add Line Item
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700 items-start">
+                                <div class="col-span-1 md:col-span-12"><h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">3. Billing & Status</h4></div>
+                                
+                                <div class="col-span-1 md:col-span-7 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Invoice Date</label>
+                                        <input type="date" id="orderDate" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                                        <input type="date" id="orderDueDate" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                    </div>
+                                    <div class="col-span-1">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Status</label>
+                                        <select id="orderStatus" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white" onchange="togglePaymentMethodReq()">
+                                            <option value="Paid">Fully Paid</option><option value="Pending">Pending / Partial</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-1">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method</label>
+                                        <select id="orderPaymentMethod" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="Cash">Cash</option><option value="UPI">UPI / QR</option><option value="Bank Transfer">Bank Transfer</option><option value="Card">Card</option><option value="Multiple">Multiple/Split</option><option value="Pending">N/A (Pending)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fulfillment (KDS)</label>
+                                        <select id="orderFulfillment" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white">
+                                            <option value="New">New</option><option value="Preparing">Preparing</option><option value="Ready">Ready</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-span-2">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Invoice Notes / Special Instructions</label>
+                                        <textarea id="orderNotes" rows="2" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white" placeholder="Will be printed on the invoice..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="col-span-1 md:col-span-5 space-y-3 mt-4 md:mt-0 bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
+                                    <div class="flex justify-between items-center text-sm"><span class="text-gray-600 dark:text-gray-400">Subtotal:</span><span class="font-bold dark:text-white"><span class="sys-curr"></span><span id="orderSubtotal">0</span></span></div>
+                                    <div class="flex justify-between items-center text-sm gap-4">
+                                        <span class="text-gray-600 dark:text-gray-400">Delivery Fee (<span class="sys-curr"></span>):</span>
+                                        <input type="number" id="orderDeliveryFee" value="0" min="0" class="w-24 p-1 text-right border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" oninput="calculateGrandTotal()">
+                                    </div>
+                                    <div class="flex justify-between items-center text-sm gap-4">
+                                        <span class="text-gray-600 dark:text-gray-400">Tax (%):</span>
+                                        <input type="number" id="orderTax" value="0" min="0" max="100" class="w-24 p-1 text-right border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" oninput="calculateGrandTotal()">
+                                    </div>
+                                    <div class="flex justify-between items-center text-sm gap-4 border-b dark:border-gray-600 pb-3">
+                                        <span class="text-gray-600 dark:text-gray-400">Discount (<span class="sys-curr"></span>):</span>
+                                        <input type="number" id="orderDiscount" value="0" min="0" class="w-24 p-1 text-right border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" oninput="calculateGrandTotal()">
+                                    </div>
+                                    <div class="flex justify-between items-center text-lg">
+                                        <span class="font-bold text-gray-800 dark:text-white">Grand Total:</span>
+                                        <span class="font-black text-gray-900 dark:text-white"><span class="sys-curr"></span><span id="orderGrandTotal">0</span></span>
+                                    </div>
+                                    <div class="flex justify-between items-center text-sm gap-4 pt-3 border-t dark:border-gray-600">
+                                        <span class="text-primary font-bold">Advance Paid (<span class="sys-curr"></span>):</span>
+                                        <input type="number" id="orderAdvance" value="0" min="0" class="w-24 p-1 text-right border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" oninput="calculateGrandTotal()">
+                                    </div>
+                                    <div class="flex justify-between items-center text-lg">
+                                        <span class="font-bold text-red-500">Balance Due:</span>
+                                        <span class="font-black text-red-500"><span class="sys-curr"></span><span id="orderBalance">0</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end gap-3 pt-2">
+                                <button type="button" onclick="toggleOrderForm()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                                <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md font-medium shadow-sm">Save Invoice</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gray-50 dark:bg-gray-800/50">
+                            <div class="flex gap-2">
+                                <button onclick="setOrderFilter('All')" id="btn-filt-all" class="px-3 py-1 text-sm font-medium rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white">All</button>
+                                <button onclick="setOrderFilter('Pending')" id="btn-filt-pend" class="px-3 py-1 text-sm font-medium rounded-md bg-transparent border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Pending</button>
+                                <button onclick="setOrderFilter('Paid')" id="btn-filt-paid" class="px-3 py-1 text-sm font-medium rounded-md bg-transparent border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Paid</button>
+                            </div>
+                            <input type="text" id="searchOrder" placeholder="Search invoices..." class="p-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white w-full sm:w-64" oninput="renderOrders()">
+                        </div>
+                        
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs uppercase">
+                                    <tr>
+                                        <th class="px-4 py-3 w-10"><input type="checkbox" id="selectAllOrders" onchange="toggleSelectAllOrders(this)"></th>
+                                        <th class="px-4 py-3">Inv # / Date</th>
+                                        <th class="px-4 py-3">Client</th>
+                                        <th class="px-4 py-3">Summary</th>
+                                        <th class="px-4 py-3">Total & Bal</th>
+                                        <th class="px-4 py-3">Status</th>
+                                        <th class="px-4 py-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="orders-mobile-list" class="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-700"></div>
+                        <div id="no-orders-msg" class="hidden-view p-8 text-center text-gray-500 dark:text-gray-400"><i class="fa-solid fa-file-invoice text-3xl mb-2"></i><p>No invoices found.</p></div>
+                    </div>
+                </div>
+
+                <!-- VIEW: KITCHEN DISPLAY (KDS) -->
+                <div id="view-kitchen" class="view-section hidden-view no-print">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Kitchen Display (KDS)</h2>
+                        <button onclick="renderKDS()" class="text-gray-500 hover:text-gray-800 dark:text-gray-300 bg-white dark:bg-gray-800 px-3 py-1 rounded shadow-sm border dark:border-gray-700"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex flex-col h-[70vh]">
+                            <h3 class="font-bold text-gray-700 dark:text-gray-200 mb-3 uppercase text-sm tracking-wider flex justify-between">New Orders <span class="bg-blue-500 text-white px-2 py-0.5 rounded-full text-xs" id="kds-new-count">0</span></h3>
+                            <div id="kds-col-new" class="flex-1 overflow-y-auto space-y-3 kds-col pr-1"></div>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex flex-col h-[70vh]">
+                            <h3 class="font-bold text-gray-700 dark:text-gray-200 mb-3 uppercase text-sm tracking-wider flex justify-between">Preparing <span class="bg-yellow-500 text-white px-2 py-0.5 rounded-full text-xs" id="kds-prep-count">0</span></h3>
+                            <div id="kds-col-prep" class="flex-1 overflow-y-auto space-y-3 kds-col pr-1"></div>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 flex flex-col h-[70vh]">
+                            <h3 class="font-bold text-gray-700 dark:text-gray-200 mb-3 uppercase text-sm tracking-wider flex justify-between">Ready / Dispatch <span class="bg-green-500 text-white px-2 py-0.5 rounded-full text-xs" id="kds-ready-count">0</span></h3>
+                            <div id="kds-col-ready" class="flex-1 overflow-y-auto space-y-3 kds-col pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: CRM & SUPPLIERS -->
+                <div id="view-customers" class="view-section hidden-view no-print">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div class="flex gap-4 items-center">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Directory</h2>
+                            <div class="bg-gray-200 dark:bg-gray-700 p-1 rounded-lg flex text-sm font-medium">
+                                <button onclick="toggleCrmTab('customers')" id="btn-tab-customers" class="px-4 py-1.5 rounded bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white">Clients</button>
+                                <button onclick="toggleCrmTab('suppliers')" id="btn-tab-suppliers" class="px-4 py-1.5 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">Suppliers</button>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <input type="text" id="searchCustomer" placeholder="Search directory..." class="p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white flex-1" oninput="renderCrmData()">
+                            <button onclick="openSupplierForm()" id="btn-add-supplier" class="hidden bg-primary text-white px-4 py-2 rounded-md font-bold text-sm whitespace-nowrap"><i class="fa-solid fa-plus"></i> Add</button>
+                        </div>
+                    </div>
+                    
+                    <div id="crm-clients-view" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs uppercase">
+                                    <tr><th class="px-4 py-3">Customer Info</th><th class="px-4 py-3">Tags & Notes</th><th class="px-4 py-3 text-center">Orders</th><th class="px-4 py-3 text-right">Lifetime Value</th><th class="px-4 py-3 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="customers-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="customers-mobile-list" class="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-700"></div>
+                    </div>
+
+                    <div id="crm-suppliers-view" class="hidden-view bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs uppercase">
+                                    <tr><th class="px-4 py-3">Supplier Name</th><th class="px-4 py-3">Category / Goods</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Address & Notes</th><th class="px-4 py-3 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="suppliers-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="suppliers-mobile-list" class="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-700"></div>
+                    </div>
+                </div>
+
+                <!-- VIEW: REVENUE (OTHER INCOME) -->
+                <div id="view-income" class="view-section hidden-view no-print">
+                    <div class="flex justify-between items-center mb-6">
+                        <div><h2 class="text-2xl font-bold text-gray-800 dark:text-white">Other Revenue</h2><p class="text-sm text-gray-500">Track tips, rentals, and non-invoice income.</p></div>
+                        <button onclick="toggleIncomeForm()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Add Income</span></button>
+                    </div>
+
+                    <div id="income-form-container" class="hidden-view bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 mb-6 border-t-4 border-t-blue-500">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2 dark:border-gray-700 dark:text-white">Add Revenue Stream</h3>
+                        <form id="incomeForm" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <input type="hidden" id="incId">
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Source / Category *</label>
+                                <input type="text" id="incCategory" required list="inc-cat-list" placeholder="e.g. Tips, Delivery Fee" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                                <datalist id="inc-cat-list"><option value="Tips"><option value="Equipment Rental"><option value="Consulting"><option value="Service Charge"></datalist>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (<span class="sys-curr"></span>) *</label>
+                                <input type="number" id="incAmount" required min="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
+                                <input type="date" id="incDate" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1 md:col-span-3">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes / Description</label>
+                                <input type="text" id="incNotes" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1 md:col-span-3 flex justify-end gap-3 mt-2">
+                                <button type="button" onclick="toggleIncomeForm()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                                <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600">Save Income</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs uppercase">
+                                    <tr><th class="px-4 py-3">Date</th><th class="px-4 py-3">Source</th><th class="px-4 py-3">Notes</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="income-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="income-mobile-list" class="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-700"></div>
+                        <div id="no-income-msg" class="hidden-view p-8 text-center text-gray-500 dark:text-gray-400"><i class="fa-solid fa-hand-holding-dollar text-3xl mb-2"></i><p>No extra income recorded.</p></div>
+                    </div>
+                </div>
+
+                <!-- VIEW: EXPENSES -->
+                <div id="view-expenses" class="view-section hidden-view no-print">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Expense Management</h2>
+                        <button onclick="toggleExpenseForm()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2"><i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">Add Expense</span></button>
+                    </div>
+
+                    <div id="expense-form-container" class="hidden-view bg-white dark:bg-gray-800 p-5 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 mb-6 border-t-4 border-t-red-500">
+                        <h3 class="text-lg font-bold mb-4 border-b pb-2 dark:border-gray-700 dark:text-white">Add Expense</h3>
+                        <form id="expenseForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <input type="hidden" id="expenseId">
+                            <div class="col-span-1">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Category *</label>
+                                    <button type="button" onclick="toggleCategoryModal()" class="text-[10px] text-blue-500 hover:text-blue-700 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded"><i class="fa-solid fa-pen-to-square"></i> Manage</button>
+                                </div>
+                                <select id="expCategory" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"></select>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (<span class="sys-curr"></span>) *</label>
+                                <input type="number" id="expAmount" required min="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date *</label>
+                                <input type="date" id="expDate" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Receipt Image</label>
+                                <input type="file" id="expReceipt" accept="image/*" class="w-full p-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white file:mr-2 file:py-1 file:px-2 file:border-0 file:text-xs file:font-semibold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300">
+                                <input type="hidden" id="expReceiptBase64">
+                            </div>
+                            <div class="col-span-1 md:col-span-4">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes / Details</label>
+                                <input type="text" id="expNotes" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white">
+                            </div>
+                            <div class="col-span-1 md:col-span-4 flex justify-end gap-3 mt-2">
+                                <button type="button" onclick="toggleExpenseForm()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                                <button type="submit" class="px-6 py-2 bg-red-500 text-white rounded-md font-medium hover:bg-red-600">Save Expense</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                            <h3 class="font-bold text-gray-700 dark:text-gray-200">Recent Expenses</h3>
+                            <select id="filterExpCategory" class="p-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" onchange="renderExpenses()"></select>
+                        </div>
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-600 dark:text-gray-300">
+                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs uppercase">
+                                    <tr><th class="px-4 py-3">Date</th><th class="px-4 py-3">Category & Notes</th><th class="px-4 py-3">Receipt</th><th class="px-4 py-3">Amount</th><th class="px-4 py-3 text-right">Actions</th></tr>
+                                </thead>
+                                <tbody id="expenses-table-body" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="expenses-mobile-list" class="md:hidden flex flex-col divide-y divide-gray-100 dark:divide-gray-700"></div>
+                        <div id="no-expenses-msg" class="hidden-view p-8 text-center text-gray-500 dark:text-gray-400"><i class="fa-solid fa-receipt text-3xl mb-2"></i><p>No expenses found.</p></div>
+                    </div>
+                </div>
+
+                <!-- VIEW: REPORTS -->
+                <div id="view-reports" class="view-section hidden-view">
+                    <div class="flex justify-between items-center mb-6 report-controls"><h2 class="text-2xl font-bold text-gray-800 dark:text-white">Financial Reports</h2></div>
+                    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                        <div class="xl:col-span-4 space-y-6 report-controls">
+                            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 class="text-lg font-bold mb-4 dark:text-white border-b pb-2 dark:border-gray-700"><i class="fa-solid fa-filter text-primary"></i> Generate Statement</h3>
+                                <div class="space-y-4">
+                                    <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label><input type="date" id="rep-start" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                    <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label><input type="date" id="rep-end" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                    <button onclick="generateCustomReport()" class="w-full bg-primary hover:bg-primaryDark text-white py-2 rounded-lg font-bold shadow-sm">Generate</button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden text-white">
+                                <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                                    <h3 class="font-bold"><i class="fa-solid fa-crown text-yellow-500 mr-2"></i> VIP Customers</h3>
+                                    <span class="text-xs text-gray-400">All Time</span>
+                                </div>
+                                <ul id="vip-customer-list" class="divide-y divide-gray-700"></ul>
+                            </div>
+                        </div>
+                        
+                        <div class="xl:col-span-8 relative">
+                            <div id="report-results-container" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hidden-view min-h-[500px]">
+                                <div class="print-rep-header hidden mb-8 text-center border-b-2 border-gray-900 pb-6"><h1 class="text-3xl font-black uppercase text-gray-900 tracking-widest" id="print-rep-bname">Business</h1><h2 class="text-xl font-bold text-gray-600 mt-2">Financial Statement</h2><p class="text-gray-500 font-medium mt-1" id="print-rep-date-range"></p></div>
+                                <div class="flex justify-between items-start mb-6 border-b dark:border-gray-700 pb-4 report-controls">
+                                    <div><h3 class="text-2xl font-bold text-gray-800 dark:text-white">Profit & Loss Statement</h3><p class="text-gray-500 dark:text-gray-400 text-sm" id="res-date-range"></p></div>
+                                    <button onclick="printProfessionalReport()" class="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 shadow transition text-sm font-medium"><i class="fa-solid fa-print"></i> Print</button>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><p class="text-[10px] text-blue-600 font-bold uppercase tracking-wider" title="Orders + Other Income">Total Gross Rev</p><p class="text-xl font-black text-gray-900 dark:text-white mt-1"><span class="sys-curr"></span><span id="res-revenue">0</span></p></div>
+                                    <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg"><p class="text-[10px] text-red-600 font-bold uppercase tracking-wider">Total Expenses</p><p class="text-xl font-black text-gray-900 dark:text-white mt-1"><span class="sys-curr"></span><span id="res-expenses">0</span></p></div>
+                                    <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg col-span-2 md:col-span-1 border-2 border-green-200 dark:border-green-800"><p class="text-[10px] text-green-600 font-bold uppercase tracking-wider">Net Profit</p><p class="text-xl font-black text-green-600 mt-1"><span class="sys-curr"></span><span id="res-profit">0</span></p></div>
+                                    <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg col-span-2 md:col-span-1 border-2 border-yellow-200 dark:border-yellow-800"><p class="text-[10px] text-yellow-600 font-bold uppercase tracking-wider">Pending Order Dues</p><p class="text-xl font-black text-yellow-700 mt-1"><span class="sys-curr"></span><span id="res-pending-dues">0</span></p></div>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Total Orders</p><p class="text-lg font-bold mt-1 text-gray-900 dark:text-white" id="res-order-count">0</p></div>
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">AOV</p><p class="text-lg font-bold mt-1 text-gray-900 dark:text-white"><span class="sys-curr"></span><span id="res-aov">0</span></p></div>
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Tax Liability</p><p class="text-lg font-bold mt-1 text-red-500"><span class="sys-curr"></span><span id="res-tax">0</span></p></div>
+                                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-100 dark:border-gray-600 text-center"><p class="text-[10px] text-gray-500 font-bold uppercase">Discounts Given</p><p class="text-lg font-bold mt-1 text-gray-900 dark:text-white"><span class="sys-curr"></span><span id="res-discounts">0</span></p></div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                    <div><h4 class="font-bold text-gray-800 dark:text-white mb-3 text-sm border-b dark:border-gray-700 pb-1 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-gray-400"></i> Expense Breakdown</h4><ul id="res-exp-list" class="space-y-2 text-sm"></ul></div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-800 dark:text-white mb-3 text-sm border-b dark:border-gray-700 pb-1 flex items-center gap-2"><i class="fa-solid fa-coins text-gray-400"></i> Other Income Sources</h4><ul id="res-inc-list" class="space-y-2 text-sm mb-4"></ul>
+                                        <h4 class="font-bold text-gray-800 dark:text-white mb-3 text-sm border-b dark:border-gray-700 pb-1 flex items-center gap-2"><i class="fa-solid fa-money-check-dollar text-gray-400"></i> Payment Methods (Orders)</h4><ul id="res-pay-list" class="space-y-2 text-sm"></ul>
+                                    </div>
+                                </div>
+                                <div><h4 class="font-bold text-gray-800 dark:text-white mb-3 text-sm border-b dark:border-gray-700 pb-1 flex items-center gap-2"><i class="fa-solid fa-fire text-orange-500"></i> Top Selling Items (Revenue)</h4><ul id="res-dish-list" class="space-y-2 text-sm"></ul></div>
+                                
+                                <div class="mt-12 text-center text-xs text-gray-400 print-rep-header hidden">
+                                    <p>Generated by SpiceSync Pro</p><p id="print-rep-timestamp"></p>
+                                </div>
+                            </div>
+                            <div id="report-empty-state" class="bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 h-full min-h-[400px] flex flex-col items-center justify-center text-gray-400 report-controls"><i class="fa-solid fa-chart-bar text-6xl mb-4 opacity-50"></i><p>Select dates to generate a statement.</p></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VIEW: SETTINGS -->
+                <div id="view-settings" class="view-section hidden-view no-print">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6">Settings & Configuration</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                            <h3 class="text-lg font-bold mb-4 border-b dark:border-gray-700 pb-2 dark:text-white"><i class="fa-solid fa-store text-primary"></i> Profile & System</h3>
+                            <form id="profileForm" class="space-y-4">
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded border border-gray-200 dark:border-gray-600 mb-4">
+                                    <!-- App Theme -->
+                                    <div class="col-span-2 md:col-span-4 flex items-center justify-between border-b dark:border-gray-600 pb-3 mb-1">
+                                        <span class="text-sm font-bold text-gray-700 dark:text-gray-300">App Theme Color</span>
+                                        <div class="flex gap-2">
+                                            <button type="button" onclick="setAppTheme('emerald')" class="w-6 h-6 rounded-full bg-[#10b981] border-2 border-transparent focus:border-gray-900"></button>
+                                            <button type="button" onclick="setAppTheme('blue')" class="w-6 h-6 rounded-full bg-[#3b82f6] border-2 border-transparent focus:border-gray-900"></button>
+                                            <button type="button" onclick="setAppTheme('rose')" class="w-6 h-6 rounded-full bg-[#f43f5e] border-2 border-transparent focus:border-gray-900"></button>
+                                            <button type="button" onclick="setAppTheme('violet')" class="w-6 h-6 rounded-full bg-[#8b5cf6] border-2 border-transparent focus:border-gray-900"></button>
+                                            <button type="button" onclick="setAppTheme('orange')" class="w-6 h-6 rounded-full bg-[#f97316] border-2 border-transparent focus:border-gray-900"></button>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-span-1">
+                                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Currency</label>
+                                        <select id="prof-currency" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white">
+                                            <option value="₹">INR (₹)</option><option value="$">USD ($)</option><option value="€">EUR (€)</option><option value="£">GBP (£)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-1">
+                                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Inv Prefix</label>
+                                        <input type="text" id="prof-prefix" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" placeholder="INV-">
+                                    </div>
+                                    <div class="col-span-2">
+                                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Monthly Target Rev.</label>
+                                        <input type="number" id="prof-target" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" placeholder="50000">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-4 flex items-center justify-between pt-2">
+                                        <span class="text-sm font-bold text-gray-700 dark:text-gray-300"><i class="fa-solid fa-lock"></i> App Lock PIN</span>
+                                        <div class="flex items-center gap-2">
+                                            <input type="checkbox" id="prof-lock-en" class="w-4 h-4 accent-primary">
+                                            <input type="password" id="prof-lock-pin" maxlength="4" placeholder="4-digit PIN" class="w-24 p-1 text-center border border-gray-300 rounded-md text-sm dark:bg-gray-700 dark:text-white">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Business Name</label><input type="text" id="prof-name" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label><input type="text" id="prof-phone" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                    <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">UPI ID</label><input type="text" id="prof-upi" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Print Layout / Template</label>
+                                        <select id="prof-inv-template" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white">
+                                            <option value="standard">A4 - Standard</option><option value="modern">A4 - Modern</option><option value="premium">A4 - Premium</option><option value="minimal">A4 - Minimal</option>
+                                            <option value="thermal">80mm Thermal Receipt</option>
+                                        </select>
+                                    </div>
+                                    <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Custom Background URL</label><input type="text" id="prof-canva-url" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" placeholder="Optional A4 image link"></div>
+                                </div>
+                                <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Global Terms & Conditions</label><textarea id="prof-terms" rows="2" class="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" placeholder="Auto-added to bottom of every invoice..."></textarea></div>
+                                
+                                <div class="pt-2 text-right"><button type="submit" class="bg-primary hover:bg-primaryDark text-white px-6 py-2 rounded-md font-medium shadow-sm transition">Save Settings</button></div>
+                            </form>
+                            
+                            <div class="mt-8 border-t dark:border-gray-700 pt-6">
+                                <h3 class="text-sm font-bold mb-3 dark:text-white">Data Management</h3>
+                                <div class="flex gap-2 mb-2">
+                                    <button onclick="exportDataCSV()" class="flex-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 py-2 rounded font-bold"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+                                    <button onclick="exportDataJSON()" class="flex-1 text-xs bg-gray-800 text-white hover:bg-gray-900 py-2 rounded font-bold"><i class="fa-solid fa-download"></i> Backup JSON</button>
+                                </div>
+                                <input type="file" id="importFile" accept=".json" class="hidden" onchange="importData(event)">
+                                <button onclick="document.getElementById('importFile').click()" class="w-full text-xs border border-gray-300 dark:border-gray-600 py-2 rounded font-bold hover:bg-gray-50 dark:hover:bg-gray-700"><i class="fa-solid fa-upload"></i> Restore from Backup</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 flex flex-col h-full max-h-[700px]">
+                            <div class="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+                                <h3 class="text-lg font-bold dark:text-white"><i class="fa-solid fa-bell-concierge text-secondary"></i> Inventory & Menu</h3>
+                                <button onclick="shareMenuWhatsApp()" class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded font-bold hover:bg-green-200"><i class="fa-brands fa-whatsapp"></i> Share Menu</button>
+                            </div>
+                            
+                            <form id="menuAddForm" class="grid grid-cols-12 gap-2 mb-4 bg-gray-50 dark:bg-gray-700/50 p-3 rounded border border-gray-200 dark:border-gray-600 relative">
+                                <div class="col-span-12 sm:col-span-5"><input type="text" id="menu-dish-name" required placeholder="Dish Name" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white"></div>
+                                <div class="col-span-6 sm:col-span-3"><input type="text" id="menu-dish-cat" placeholder="Category" list="cat-list" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white"><datalist id="cat-list"><option value="Starters"><option value="Mains"><option value="Desserts"><option value="Drinks"></datalist></div>
+                                <div class="col-span-6 sm:col-span-2"><input type="number" id="menu-dish-price" required placeholder="Price" min="0" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" oninput="calcMargin()"></div>
+                                <div class="col-span-9 sm:col-span-2"><input type="number" id="menu-dish-cost" placeholder="Cost" min="0" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white" oninput="calcMargin()"></div>
+                                
+                                <div class="col-span-12 flex justify-between items-center mt-1">
+                                    <span class="text-xs font-bold text-gray-500">Margin: <span id="menu-dish-margin" class="text-green-600">0%</span></span>
+                                    <button type="submit" class="bg-secondary hover:bg-yellow-600 text-white px-4 py-1.5 rounded-md font-bold text-sm">Add Item</button>
+                                </div>
+                            </form>
+                            <div class="flex-1 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900">
+                                <ul id="settings-menu-list" class="divide-y divide-gray-100 dark:divide-gray-800"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Nav -->
+            <nav class="md:hidden bg-white dark:bg-gray-800 border-t border-gray-200 fixed bottom-0 w-full z-20 shadow-lg no-print">
+                <div class="flex justify-around items-center h-16">
+                    <button onclick="switchView('dashboard')" class="nav-item-mobile flex-1 flex flex-col items-center justify-center active" id="mob-nav-dashboard"><i class="fa-solid fa-chart-pie mb-1"></i><span class="text-[10px]">Dash</span></button>
+                    <button onclick="switchView('orders')" class="nav-item-mobile flex-1 flex flex-col items-center justify-center text-gray-500" id="mob-nav-orders"><i class="fa-solid fa-file-invoice mb-1"></i><span class="text-[10px]">Orders</span></button>
+                    <button onclick="switchView('kitchen')" class="nav-item-mobile flex-1 flex flex-col items-center justify-center text-gray-500" id="mob-nav-kitchen"><i class="fa-solid fa-fire-burner mb-1"></i><span class="text-[10px]">KDS</span></button>
+                    <button onclick="switchView('expenses')" class="nav-item-mobile flex-1 flex flex-col items-center justify-center text-gray-500" id="mob-nav-expenses"><i class="fa-solid fa-wallet mb-1"></i><span class="text-[10px]">Exp</span></button>
+                    <button onclick="switchView('settings')" class="nav-item-mobile flex-1 flex flex-col items-center justify-center text-gray-500" id="mob-nav-settings"><i class="fa-solid fa-gear mb-1"></i><span class="text-[10px]">Set</span></button>
+                </div>
+            </nav>
+        </main>
+    </div>
+
+    <!-- Modals that are placed EXACTLY ONCE outside the main layout -->
+    <div id="invoice-modal" class="hidden-view fixed inset-0 bg-gray-500/75 z-[70] flex justify-center overflow-y-auto p-0 sm:p-8 backdrop-blur-sm">
+        <div class="bg-white text-black w-full max-w-3xl shadow-2xl relative template-standard" id="invoice-paper">
+            <div id="inv-watermark" class="watermark-stamp text-gray-200 border-gray-200">PAID</div>
+            
+            <div class="absolute top-4 right-4 no-print flex gap-2 z-50">
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-bold shadow transition"><i class="fa-solid fa-print"></i> Print</button>
+                <button onclick="closeInvoiceModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-bold shadow transition">Close</button>
+            </div>
+
+            <div class="inv-content-wrapper p-10 sm:p-16 flex flex-col h-full relative z-10 bg-transparent min-h-[1056px]">
+                <div class="inv-header-section flex justify-between items-start pb-6 mb-8">
+                    <div class="w-1/2">
+                        <div class="flex items-center gap-2 mb-2 inv-brand-icon">
+                            <div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white"><i class="fa-solid fa-utensils text-sm"></i></div>
+                            <h1 class="text-2xl font-black tracking-tight uppercase" id="inv-b-name">SPICESYNC</h1>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-1" id="inv-b-phone"></p>
+                    </div>
+                    <div class="text-right w-1/2 flex flex-col items-end">
+                        <h2 class="text-4xl font-black text-gray-300 uppercase tracking-widest mb-4">INVOICE</h2>
+                        <div class="grid grid-cols-2 gap-y-1 text-sm text-right w-full max-w-[250px]">
+                            <span class="font-bold text-gray-500 uppercase">Inv No:</span> <span class="font-mono font-bold text-gray-900" id="inv-id"></span>
+                            <span class="font-bold text-gray-500 uppercase">Date:</span> <span class="text-gray-900" id="inv-date"></span>
+                            <span class="font-bold text-gray-500 uppercase">Order Type:</span> <span class="text-gray-900 font-bold" id="inv-type"></span>
+                        </div>
+                        <div class="mt-4"><svg id="inv-barcode"></svg></div>
+                    </div>
+                </div>
+
+                <div class="inv-inner-content flex-1 flex flex-col">
+                    <div class="mb-8 p-4 bg-gray-50 border border-gray-100 rounded inv-customer-section">
+                        <h3 class="text-gray-400 font-bold uppercase text-xs tracking-wider mb-2">Billed To</h3>
+                        <p class="text-xl font-bold text-gray-800" id="inv-name"></p>
+                        <p class="text-gray-600 text-sm mt-1" id="inv-phone"></p>
+                        <p class="text-gray-600 text-sm mt-1"><i class="fa-solid fa-location-dot text-gray-400 mr-1"></i> <span id="inv-area"></span></p>
+                    </div>
+
+                    <div class="flex-1">
+                        <table class="w-full text-left mb-8 border-collapse inv-table-main">
+                            <thead class="inv-table-head"><tr class="bg-gray-50"><th class="py-3 px-2 font-bold text-gray-800 uppercase text-xs">Description</th><th class="py-3 px-2 font-bold text-gray-800 uppercase text-xs text-center w-20">Qty</th><th class="py-3 px-2 font-bold text-gray-800 uppercase text-xs text-right w-24">Rate</th><th class="py-3 px-2 font-bold text-gray-800 uppercase text-xs text-right w-28">Amount</th></tr></thead>
+                            <tbody id="inv-items-body" class="text-sm text-gray-700"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex justify-between items-start mb-12">
+                        <div class="w-1/2 pr-4">
+                            <div id="inv-notes-wrap" class="hidden">
+                                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Notes</p>
+                                <p class="text-sm text-gray-700 italic border-l-2 border-gray-300 pl-3" id="inv-notes"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="w-1/2 sm:w-1/3 inv-totals-section">
+                            <div class="flex justify-between py-1 text-sm text-gray-600"><span>Subtotal</span><span><span class="sys-curr"></span><span id="inv-subtotal"></span></span></div>
+                            <div class="flex justify-between py-1 text-sm text-gray-600" id="inv-del-row"><span>Delivery</span><span><span class="sys-curr"></span><span id="inv-del-amt"></span></span></div>
+                            <div class="flex justify-between py-1 text-sm text-gray-600" id="inv-tax-row"><span>Tax (<span id="inv-tax-pct"></span>%)</span><span><span class="sys-curr"></span><span id="inv-tax-amt"></span></span></div>
+                            <div class="flex justify-between py-1 text-sm text-red-500" id="inv-discount-row"><span>Discount</span><span>- <span class="sys-curr"></span><span id="inv-discount-amt"></span></span></div>
+                            <div class="inv-totals-divider flex justify-between py-2 font-bold text-lg border-t border-gray-300 mt-2 text-gray-900"><span>Grand Total</span><span><span class="sys-curr"></span><span id="inv-total"></span></span></div>
+                            <div class="flex justify-between py-1 text-sm text-gray-600" id="inv-adv-row"><span>Paid</span><span><span class="sys-curr"></span><span id="inv-adv-amt"></span></span></div>
+                            <div class="flex justify-between py-2 text-sm font-black text-red-600 bg-red-50 px-2 rounded mt-1" id="inv-bal-row"><span>Balance</span><span><span class="sys-curr"></span><span id="inv-bal-amt"></span></span></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-4 border-t border-gray-200 inv-footer-section flex justify-between items-end">
+                        <div class="text-xs text-gray-500 w-2/3">
+                            <p class="font-bold text-gray-700 uppercase mb-1">Terms</p>
+                            <p id="inv-terms" class="whitespace-pre-wrap leading-relaxed"></p>
+                        </div>
+                        <div class="text-right text-gray-400 text-[10px] w-1/3">
+                            <p class="font-bold text-gray-500 text-xs">Thank You!</p>
+                            <p class="mt-1" id="inv-b-upi-wrap">UPI: <span id="inv-b-upi" class="font-bold text-gray-700"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="supplier-modal" class="hidden-view fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl p-5 shadow-xl">
+            <h3 class="font-bold mb-4 dark:text-white border-b pb-2 dark:border-gray-700">Add/Edit Supplier</h3>
+            <input type="hidden" id="sup-old-name">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Supplier / Vendor Name *</label>
+            <input type="text" id="sup-name" required class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Category / Goods Provided</label>
+            <input type="text" id="sup-cat" placeholder="e.g. Meat, Vegetables, Gas" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Contact Details</label>
+            <input type="text" id="sup-contact" placeholder="Phone or Email" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4">
+            <label class="block text-xs font-medium text-gray-500 mb-1">Notes / Address</label>
+            <textarea id="sup-notes" rows="2" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4"></textarea>
+            <div class="flex justify-end gap-2"><button onclick="document.getElementById('supplier-modal').classList.add('hidden-view')" class="px-4 py-2 border rounded text-gray-600 dark:text-gray-300">Cancel</button><button onclick="saveSupplierProfile()" class="px-4 py-2 bg-primary text-white rounded font-bold">Save</button></div>
+        </div>
+    </div>
+
+    <div id="crm-modal" class="hidden-view fixed inset-0 bg-black/50 z-[80] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl p-5 shadow-xl">
+            <h3 class="font-bold mb-4 dark:text-white border-b pb-2 dark:border-gray-700">Edit Customer Profile</h3>
+            <input type="hidden" id="crm-phone">
+            <label class="block text-xs font-medium text-gray-500 mb-1 mt-2">Tag / Segment</label>
+            <select id="crm-tag" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4"><option value="">Regular</option><option value="VIP">VIP</option><option value="Corporate">Corporate</option><option value="Blacklisted">Blacklisted</option></select>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Private Notes</label>
+            <textarea id="crm-notes" rows="3" class="w-full p-2 text-sm border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white mb-4" placeholder="E.g., Prefers less spicy..."></textarea>
+            <div class="flex justify-end gap-2"><button onclick="document.getElementById('crm-modal').classList.add('hidden-view')" class="px-4 py-2 border rounded text-gray-600 dark:text-gray-300">Cancel</button><button onclick="saveCrmProfile()" class="px-4 py-2 bg-primary text-white rounded font-bold">Save</button></div>
+        </div>
+    </div>
+
+    <div id="image-modal" class="hidden-view fixed inset-0 bg-black/90 z-[90] flex items-center justify-center p-4">
+        <button onclick="document.getElementById('image-modal').classList.add('hidden-view')" class="absolute top-4 right-4 text-white text-3xl"><i class="fa-solid fa-xmark"></i></button>
+        <img id="image-modal-src" class="max-w-full max-h-[90vh] rounded-lg shadow-2xl">
+    </div>
+
+    <div id="confirm-modal" class="hidden-view fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-sm rounded-xl p-6 text-center border border-gray-200 dark:border-gray-700">
+            <div class="text-red-500 text-5xl mb-4"><i class="fa-solid fa-circle-exclamation"></i></div>
+            <h3 class="text-xl font-bold dark:text-white mb-2" id="confirm-title">Are you sure?</h3>
+            <div class="flex gap-3 justify-center mt-6">
+                <button onclick="closeConfirmModal()" class="px-4 py-2 border rounded-md text-gray-700 dark:text-gray-300 w-1/2">Cancel</button>
+                <button id="confirm-btn" class="px-4 py-2 bg-red-500 text-white rounded-md font-bold w-1/2">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scanner-modal" class="hidden-view fixed inset-0 bg-black/90 z-[90] flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl overflow-hidden relative">
+            <div class="p-4 border-b flex justify-between">
+                <h3 class="font-bold dark:text-white">Scan Barcode</h3>
+                <button onclick="stopBarcodeScanner()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-0 bg-black relative flex items-center justify-center min-h-[300px]">
+                <div id="reader" class="w-full h-full"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="category-modal" class="hidden-view fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50"><h3 class="font-bold text-gray-800 dark:text-white">Expense Categories</h3><button onclick="toggleCategoryModal()" class="text-gray-500 hover:text-gray-700"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+            <div class="p-4 overflow-y-auto flex-1">
+                <div class="flex gap-2 mb-4"><input type="text" id="newCategoryInput" class="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white" placeholder="New category..."><button onclick="addExpenseCategory()" class="bg-primary text-white px-4 py-2 rounded-md"><i class="fa-solid fa-plus"></i></button></div>
+                <ul id="category-list" class="divide-y divide-gray-100 dark:divide-gray-700 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-700"></ul>
+            </div>
+            <div class="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-right"><button onclick="toggleCategoryModal()" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-md font-medium">Done</button></div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- ONE CONSOLIDATED JAVASCRIPT FILE -->
+    <script>
+        // --- SAFE DOM HELPER ---
+        function safeSetText(id, text) {
+            const el = document.getElementById(id);
+            if(el) el.innerText = text;
+        }
+        function safeSetValue(id, value) {
+            const el = document.getElementById(id);
+            if(el) el.value = value;
+        }
+
+        // --- CORE DATA & STATE ---
+        const STORAGE_KEY = 'spicesync_pro_data_v3';
+        const DEFAULT_MENU = [
+            { id: '1', name: "Chicken Biriyani", cat: "Mains", price: 150, cost: 100, stock: true }, 
+            { id: '2', name: "Beef Roast", cat: "Starters", price: 160, cost: 110, stock: true }
+        ];
+        
+        let db = { 
+            orders: [], expenses: [], income: [], customers: [], suppliers: [], activity: [],
+            settings: { 
+                darkMode: false, themeColor: 'emerald', expenseCategories: ["Raw Materials", "Salary", "Transport", "Rent"], menu: [...DEFAULT_MENU],
+                appLock: { enabled: false, pin: '' },
+                profile: { name: "SpiceSync Pro", phone: "", upi: "", invoiceTemplate: "standard", canvaUrl: "", currency: "₹", prefix: "INV-", monthlyTarget: 50000, terms: "Goods once sold cannot be taken back.\nPayment due upon receipt." }
+            } 
+        };
+
+        // Initialize App
+        function initApp() {
+            const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('spicesync_pro_data_v2');
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    db = { ...db, ...parsed };
+                    
+                    if(!db.income) db.income = [];
+                    if(!db.suppliers) db.suppliers = [];
+                    if(!db.customers) db.customers = [];
+                    if(!db.settings.themeColor) db.settings.themeColor = 'emerald';
+                    if(!db.settings.appLock) db.settings.appLock = { enabled: false, pin: '' };
+                    if(!db.settings.profile.currency) db.settings.profile.currency = '₹';
+                    if(!db.settings.profile.prefix) db.settings.profile.prefix = 'INV-';
+                } catch(e) { console.error("Parse error loading data", e); }
+            }
+            
+            if(db.settings.appLock.enabled && db.settings.appLock.pin) {
+                const lockScreen = document.getElementById('app-lock-screen');
+                if(lockScreen) lockScreen.classList.remove('hidden-view');
+            } else {
+                startApp();
+            }
+        }
+
+        let currentPin = '';
+        function enterPin(num) {
+            if(currentPin.length < 4) {
+                currentPin += num;
+                const dot = document.getElementById(`dot-${currentPin.length}`);
+                if(dot) dot.classList.add('filled');
+                if(currentPin.length === 4) verifyPin();
+            }
+        }
+        function clearPin() {
+            if(currentPin.length > 0) {
+                const dot = document.getElementById(`dot-${currentPin.length}`);
+                if(dot) dot.classList.remove('filled');
+                currentPin = currentPin.slice(0, -1);
+            }
+            safeSetText('pin-error', '');
+        }
+        function verifyPin() {
+            if(currentPin === db.settings.appLock.pin) {
+                const ls = document.getElementById('app-lock-screen');
+                if(ls) ls.classList.add('hidden-view');
+                startApp();
+            } else {
+                safeSetText('pin-error', 'INCORRECT PIN');
+                setTimeout(() => {
+                    currentPin = '';
+                    for(let i=1;i<=4;i++) {
+                        const d = document.getElementById(`dot-${i}`);
+                        if(d) d.classList.remove('filled');
+                    }
+                    safeSetText('pin-error', '');
+                }, 1000);
+            }
+        }
+
+        function startApp() {
+            applyTheme(db.settings.darkMode);
+            setAppTheme(db.settings.themeColor);
+            updateCurrencySymbols();
+            renderSettings();
+            renderOrders();
+            renderIncome();
+            renderCustomers();
+            renderSuppliers();
+            renderExpenses();
+            updateDashboard();
+            updateVIPList();
+            
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            safeSetValue('orderDate', today.toISOString().split('T')[0]);
+            safeSetValue('expDate', today.toISOString().split('T')[0]);
+            safeSetValue('incDate', today.toISOString().split('T')[0]);
+            safeSetValue('rep-start', firstDay.toISOString().split('T')[0]);
+            safeSetValue('rep-end', today.toISOString().split('T')[0]);
+
+            try {
+                if ('contacts' in navigator && 'ContactsManager' in window && window.self === window.top) {
+                    const btn = document.getElementById('btn-contact-picker');
+                    if(btn) btn.classList.remove('hidden-view');
+                }
+            } catch(e) {
+                console.warn('Contacts API not supported or blocked.', e);
+            }
+        }
+
+        function saveData() { 
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); 
+            updateDashboard(); 
+        }
+
+        function showToast(msg, type='success') { 
+            const c = document.getElementById('toast-container'); 
+            if(!c) return;
+            const t = document.createElement('div'); 
+            t.className=`toast ${type}`; 
+            t.innerHTML=`<i class="fa-solid fa-circle-info mr-2"></i>${msg}`; 
+            c.appendChild(t); 
+            setTimeout(()=>t.classList.add('show'), 10); 
+            setTimeout(()=>{
+                t.classList.remove('show'); 
+                setTimeout(()=>t.remove(), 300);
+            }, 3000); 
+        }
+        
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        function formatCurr(val) { return parseFloat(val||0).toLocaleString('en-IN', {maximumFractionDigits:2}); }
+        function updateCurrencySymbols() { document.querySelectorAll('.sys-curr').forEach(el => el.innerText = db.settings.profile.currency); }
+
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden-view'));
+            const target = document.getElementById(`view-${id}`);
+            if(target) target.classList.remove('hidden-view');
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const navD = document.getElementById(`nav-${id}`); if(navD) navD.classList.add('active');
+            
+            document.querySelectorAll('.nav-item-mobile').forEach(el => el.classList.remove('active'));
+            const navM = document.getElementById(`mob-nav-${id}`); if(navM) navM.classList.add('active');
+            
+            if(id === 'dashboard') { updateLineChart(); updatePieChart(); }
+            if(id === 'reports') { updateVIPList(); }
+            if(id === 'kitchen') { renderKDS(); }
+            
+            const scroll = document.getElementById('main-scroll-area');
+            if(scroll) scroll.scrollTop = 0;
+            
+            const fab = document.querySelector('.fab-menu');
+            if(fab) fab.classList.remove('active');
+        }
+
+        let confirmCallback = null;
+        function openConfirm(title, msg, cb) { 
+            safeSetText('confirm-title', title);
+            const btn = document.getElementById('confirm-btn');
+            if(btn) btn.onclick=()=>{cb();closeConfirmModal()}; 
+            const modal = document.getElementById('confirm-modal');
+            if(modal) modal.classList.remove('hidden-view'); 
+        }
+        function closeConfirmModal() { 
+            const m = document.getElementById('confirm-modal');
+            if(m) m.classList.add('hidden-view'); 
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const ls = document.getElementById('app-lock-screen');
+            if(ls && !ls.classList.contains('hidden-view')) return;
+            if(e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); switchView('orders'); toggleOrderForm(); }
+            if(e.altKey && e.key.toLowerCase() === 'd') { e.preventDefault(); switchView('dashboard'); }
+            if(e.altKey && e.key.toLowerCase() === 'e') { e.preventDefault(); switchView('expenses'); toggleExpenseForm(); }
+        });
+
+        function logActivity(action, ref) {
+            if(!db.activity) db.activity = [];
+            db.activity.unshift({ action, ref, time: new Date().toISOString() });
+            if(db.activity.length > 20) db.activity.pop();
+            saveData();
+        }
+        
+        function renderActivity() {
+            const ul = document.getElementById('activity-log');
+            if(!ul) return;
+            if(!db.activity || db.activity.length === 0) { ul.innerHTML = '<li class="text-gray-500 italic text-xs">No recent activity</li>'; return; }
+            ul.innerHTML = db.activity.slice(0,5).map(a => {
+                const timeStr = new Date(a.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                return `<li class="flex justify-between items-center"><span class="text-gray-700 dark:text-gray-300"><span class="font-bold">${a.action}</span> ${a.ref}</span><span class="text-xs text-gray-400">${timeStr}</span></li>`;
+            }).join('');
+        }
+
+        // --- DASHBOARD UPDATES ---
+        function updateDashboard() {
+            const now = new Date(); 
+            const isSame = (d1, d2) => d1.toDateString() === d2.toDateString();
+            
+            const to = db.orders.filter(o => isSame(new Date(o.timestamp), now));
+            const ti = db.income.filter(x => isSame(new Date(x.date), now));
+            const te = db.expenses.filter(x => isSame(new Date(x.date), now));
+            
+            const revOrders = to.reduce((s,o)=>s+o.total,0); 
+            const revExtra = ti.reduce((s,x)=>s+x.amount,0);
+            const revTotal = revOrders + revExtra;
+            const exp = te.reduce((s,x)=>s+x.amount,0);
+            
+            safeSetText('dash-sales-today', formatCurr(revTotal));
+            safeSetText('dash-orders-count', to.length);
+            safeSetText('dash-exp-today', formatCurr(exp));
+            safeSetText('dash-exp-count', te.length);
+            
+            const profit = revTotal - exp;
+            safeSetText('dash-profit-today', formatCurr(Math.abs(profit)));
+            const pCont = document.getElementById('dash-profit-today-container');
+            if(pCont) {
+                pCont.className = profit >= 0 ? "text-3xl font-bold text-green-500" : "text-3xl font-bold text-red-500";
+                if(profit < 0) safeSetText('dash-profit-today', "-" + formatCurr(Math.abs(profit)));
+            }
+
+            const pendingOrders = db.orders.filter(o=>o.status==='Pending');
+            safeSetText('dash-dues-total', formatCurr(pendingOrders.reduce((s,o)=>s+(o.balance||o.total),0)));
+            safeSetText('dash-dues-count', pendingOrders.length);
+
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthOrders = db.orders.filter(o => new Date(o.timestamp) >= first).reduce((s,o)=>s+o.total,0);
+            const monthIncome = db.income.filter(x => new Date(x.date) >= first).reduce((s,x)=>s+x.amount,0);
+            const target = db.settings.profile.monthlyTarget || 1;
+            
+            safeSetText('target-max', formatCurr(target));
+            const pBar = document.getElementById('target-progress');
+            if(pBar) pBar.style.width = `${Math.min(100, ((monthOrders+monthIncome)/target)*100)}%`;
+
+            if(db.orders.length > 0) {
+                const dc = {}; 
+                db.orders.forEach(o => o.items.forEach(i => dc[i.dish] = (dc[i.dish]||0) + i.qty));
+                const best = Object.keys(dc).length ? Object.keys(dc).reduce((a,b) => dc[a]>dc[b]?a:b) : '-';
+                safeSetText('dash-best-dish', best);
+                safeSetText('dash-best-dish-count', dc[best] || 0);
+            } else {
+                safeSetText('dash-best-dish', "-");
+                safeSetText('dash-best-dish-count', 0);
+            }
+
+            const outOfStock = db.settings.menu.filter(m => !m.stock);
+            const wEl = document.getElementById('dash-stock-warning');
+            if(outOfStock.length > 0) {
+                if(wEl) wEl.classList.remove('hidden-view');
+                safeSetText('dash-stock-list', outOfStock.map(m=>m.name).join(', '));
+            } else {
+                if(wEl) wEl.classList.add('hidden-view');
+            }
+
+            renderActivity();
+            const dv = document.getElementById('view-dashboard');
+            if(dv && !dv.classList.contains('hidden-view')) { 
+                updateLineChart(); 
+                updatePieChart(); 
+            }
+        }
+
+        // --- THEME & CHARTS ---
+        function setAppTheme(colorName) {
+            db.settings.themeColor = colorName;
+            document.body.className = document.body.className.replace(/theme-\w+/g, '');
+            if(colorName !== 'emerald') document.body.classList.add(`theme-${colorName}`);
+            saveData();
+            const dv = document.getElementById('view-dashboard');
+            if(dv && !dv.classList.contains('hidden-view')) updateLineChart();
+        }
+
+        function applyTheme(isDark) { 
+            if(isDark) document.documentElement.classList.add('dark'); 
+            else document.documentElement.classList.remove('dark'); 
+        }
+
+        function toggleTheme() { 
+            db.settings.darkMode = !db.settings.darkMode; 
+            applyTheme(db.settings.darkMode); 
+            saveData(); 
+            const dv = document.getElementById('view-dashboard');
+            if(dv && !dv.classList.contains('hidden-view')) { updateLineChart(); updatePieChart(); } 
+        }
+
+        let lineChartInst = null, pieChartInst = null;
+        
+        function updateLineChart() {
+            const ctx = document.getElementById('financeChart');
+            if(!ctx) return;
+
+            const labels = [], salesData = [], expData = [];
+            const isSameDay = (d1, d2) => d1.toDateString() === d2.toDateString();
+            
+            for(let i=6; i>=0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                labels.push(d.toLocaleDateString('en-IN', {day:'numeric', month:'short'}));
+                const oDay = db.orders.filter(o => isSameDay(new Date(o.timestamp), d)).reduce((s, o) => s + o.total, 0);
+                const iDay = db.income.filter(x => isSameDay(new Date(x.date), d)).reduce((s, x) => s + x.amount, 0);
+                salesData.push(oDay + iDay);
+                expData.push(db.expenses.filter(x => isSameDay(new Date(x.date), d)).reduce((s, x) => s + x.amount, 0));
+            }
+
+            if(lineChartInst) lineChartInst.destroy();
+            Chart.defaults.color = db.settings.darkMode ? '#9ca3af' : '#4b5563';
+            
+            const style = getComputedStyle(document.body);
+            const pColor = style.getPropertyValue('--color-primary').trim() || '#10b981';
+
+            lineChartInst = new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets: [
+                    { label: 'Gross Rev', data: salesData, borderColor: pColor, backgroundColor: `color-mix(in srgb, ${pColor} 10%, transparent)`, fill: true, tension: 0.3, borderWidth: 2 },
+                    { label: 'Expenses', data: expData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.3, borderWidth: 2 }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: db.settings.darkMode ? '#374151' : '#e5e7eb' } }, x: { grid: { display: false } } }, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function updatePieChart() {
+            const ctx = document.getElementById('expensePieChart');
+            if(!ctx) return;
+
+            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const recentExp = db.expenses.filter(x => new Date(x.date) >= thirtyDaysAgo);
+            
+            const expCat = {};
+            recentExp.forEach(x => expCat[x.category] = (expCat[x.category]||0) + x.amount);
+            
+            const labels = Object.keys(expCat);
+            const data = Object.values(expCat);
+
+            if(pieChartInst) pieChartInst.destroy();
+            
+            if(data.length === 0) {
+                pieChartInst = new Chart(ctx.getContext('2d'), { type: 'doughnut', data: { labels: ['No Data'], datasets: [{ data: [1], backgroundColor: [db.settings.darkMode ? '#374151' : '#e5e7eb'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false}, tooltip: {enabled: false} } }});
+                return;
+            }
+
+            const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];
+            pieChartInst = new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }]},
+                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 }, color: db.settings.darkMode ? '#9ca3af' : '#4b5563' } } } }
+            });
+        }
+
+        // --- REVENUE MODULE ---
+        function toggleIncomeForm(editInc = null) {
+            const form = document.getElementById('income-form-container');
+            if(!form) return;
+            
+            if(form.classList.contains('hidden-view')) {
+                form.classList.remove('hidden-view');
+                if(editInc) {
+                    safeSetValue('incId', editInc.id);
+                    safeSetValue('incCategory', editInc.category);
+                    safeSetValue('incAmount', editInc.amount);
+                    safeSetValue('incDate', editInc.date);
+                    safeSetValue('incNotes', editInc.notes || '');
+                } else {
+                    const incFormEl = document.getElementById('incomeForm');
+                    if(incFormEl) incFormEl.reset();
+                    safeSetValue('incId', '');
+                    safeSetValue('incDate', new Date().toISOString().split('T')[0]);
+                }
+            } else form.classList.add('hidden-view');
+        }
+
+        const incFormEl = document.getElementById('incomeForm');
+        if(incFormEl) {
+            incFormEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const id = document.getElementById('incId').value || generateId();
+                const inc = { 
+                    id, 
+                    category: document.getElementById('incCategory').value, 
+                    amount: parseFloat(document.getElementById('incAmount').value), 
+                    date: document.getElementById('incDate').value, 
+                    notes: document.getElementById('incNotes').value 
+                };
+                const idx = db.income.findIndex(x=>x.id===id);
+                if(idx > -1) db.income[idx] = inc; else db.income.unshift(inc);
+                logActivity('Extra Revenue', `${inc.category} (${db.settings.profile.currency}${inc.amount})`);
+                saveData(); renderIncome(); toggleIncomeForm(); showToast('Saved');
+            });
+        }
+
+        function renderIncome() {
+            const tbody = document.getElementById('income-table-body'), mobList = document.getElementById('income-mobile-list');
+            if(!tbody || !mobList) return;
+
+            tbody.innerHTML=''; mobList.innerHTML='';
+            const msg = document.getElementById('no-income-msg');
+            if(msg) msg.classList.toggle('hidden-view', db.income.length > 0);
+
+            db.income.forEach(x => {
+                tbody.innerHTML += `<tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td class="px-4 py-3">${new Date(x.date).toLocaleDateString()}</td>
+                    <td class="px-4 py-3 font-bold">${x.category}</td>
+                    <td class="px-4 py-3 text-gray-500">${x.notes||'-'}</td>
+                    <td class="px-4 py-3 font-bold text-blue-500">${db.settings.profile.currency}${formatCurr(x.amount)}</td>
+                    <td class="px-4 py-3 text-right"><button onclick="editIncome('${x.id}')" class="text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="openConfirm('Delete', 'Delete Income?', ()=>{db.income=db.income.filter(e=>e.id!=='${x.id}');saveData();renderIncome()})" class="text-red-500"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+                
+                mobList.innerHTML += `<div class="p-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-between"><div><p class="font-bold text-sm">${x.category}</p><p class="text-xs text-gray-500">${new Date(x.date).toLocaleDateString()} • ${x.notes||''}</p></div><div class="text-right"><p class="font-bold text-blue-500 mb-1">${db.settings.profile.currency}${formatCurr(x.amount)}</p><button onclick="editIncome('${x.id}')" class="text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="openConfirm('Delete', 'Delete Income?', ()=>{db.income=db.income.filter(e=>e.id!=='${x.id}');saveData();renderIncome()})" class="text-red-500"><i class="fa-solid fa-trash"></i></button></div></div>`;
+            });
+        }
+        function editIncome(id) { 
+            toggleIncomeForm(db.income.find(x => x.id === id)); 
+            const f = document.getElementById('income-form-container');
+            if(f) f.scrollIntoView({behavior: 'smooth'}); 
+        }
+
+        // --- ORDER MANAGEMENT ---
+        let currentOrderFilter = 'All';
+        function toggleOrderForm(editOrder = null) {
+            const form = document.getElementById('order-form-container');
+            if(!form) return;
+
+            if(form.classList.contains('hidden-view')) {
+                form.classList.remove('hidden-view');
+                const cont = document.getElementById('order-items-container');
+                if(cont) cont.innerHTML = '';
+
+                if(editOrder) {
+                    safeSetValue('orderId', editOrder.id);
+                    safeSetValue('orderName', editOrder.customerName);
+                    safeSetValue('orderPhone', editOrder.phone);
+                    safeSetValue('orderArea', editOrder.area || '');
+                    safeSetValue('orderType', editOrder.type || 'Delivery');
+                    safeSetValue('orderDate', editOrder.timestamp.split('T')[0]);
+                    safeSetValue('orderDueDate', editOrder.dueDate ? editOrder.dueDate.split('T')[0] : '');
+                    safeSetValue('orderStatus', editOrder.status);
+                    safeSetValue('orderPaymentMethod', editOrder.paymentMethod || 'Cash');
+                    safeSetValue('orderFulfillment', editOrder.fulfillmentStatus || 'New');
+                    safeSetValue('orderNotes', editOrder.notes || '');
+                    safeSetValue('orderDeliveryFee', editOrder.deliveryFee || 0);
+                    safeSetValue('orderTax', editOrder.taxPercent || 0);
+                    safeSetValue('orderDiscount', editOrder.discount || 0);
+                    safeSetValue('orderAdvance', editOrder.advancePaid || 0);
+                    editOrder.items.forEach(item => addOrderItemRow(item));
+                } else {
+                    const oform = document.getElementById('orderForm');
+                    if(oform) oform.reset();
+                    safeSetValue('orderId', '');
+                    safeSetValue('orderDate', new Date().toISOString().split('T')[0]);
+                    addOrderItemRow(); 
+                }
+                calculateGrandTotal();
+            } else form.classList.add('hidden-view');
+        }
+
+        function getDishOptions() { 
+            const inStock = db.settings.menu.filter(m=>m.stock);
+            if(inStock.length === 0) return '';
+            return inStock.map(d => `<option value="${d.name}" data-price="${d.price}">${d.name}</option>`).join(''); 
+        }
+
+        function addOrderItemRow(item = null) {
+            const id = generateId();
+            const isCustom = item && !db.settings.menu.some(m => m.name === item.dish);
+            const row = document.createElement('div');
+            row.className = `item-row grid grid-cols-12 gap-2 items-end border border-gray-200 dark:border-gray-700 p-2 rounded bg-white dark:bg-gray-800`;
+            row.id = `row-${id}`;
+            row.innerHTML = `
+                <div class="col-span-12 sm:col-span-4"><select class="item-dish w-full p-2 text-sm border rounded dark:bg-gray-700" onchange="handleDishChange('${id}')" required><option value="">Select...</option>${getDishOptions()}<option value="Custom" ${isCustom?'selected':''}>Custom</option></select><input type="text" class="item-custom-dish w-full p-2 mt-1 text-sm border rounded dark:bg-gray-700" style="display:${isCustom?'block':'none'}" placeholder="Name" value="${isCustom?item.dish:''}"></div>
+                <div class="col-span-4 sm:col-span-2"><input type="number" class="item-qty w-full p-2 text-sm border rounded dark:bg-gray-700" required min="1" value="${item?item.qty:1}" oninput="calcRow('${id}')"></div>
+                <div class="col-span-4 sm:col-span-2"><input type="number" class="item-price w-full p-2 text-sm border rounded dark:bg-gray-700" required min="0" value="${item?item.price:''}" oninput="calcRow('${id}')"></div>
+                <div class="col-span-4 sm:col-span-3"><input type="number" class="item-total w-full p-2 text-sm bg-gray-100 dark:bg-gray-600 border rounded font-bold" readonly value="${item?item.total:''}"></div>
+                <div class="col-span-12 sm:col-span-1 text-right"><button type="button" onclick="document.getElementById('row-${id}').remove();calculateGrandTotal()" class="text-red-500 p-2"><i class="fa-solid fa-trash"></i></button></div>
+            `;
+            const cont = document.getElementById('order-items-container');
+            if(cont) cont.appendChild(row);
+            if(item && !isCustom) row.querySelector('.item-dish').value = item.dish;
+        }
+
+        function handleDishChange(id) {
+            const row = document.getElementById(`row-${id}`); if(!row) return;
+            const s = row.querySelector('.item-dish');
+            if(s.value === 'Custom') { row.querySelector('.item-custom-dish').style.display='block'; row.querySelector('.item-price').value=''; }
+            else { row.querySelector('.item-custom-dish').style.display='none'; if(s.options[s.selectedIndex].dataset.price) row.querySelector('.item-price').value = s.options[s.selectedIndex].dataset.price; }
+            calcRow(id);
+        }
+
+        function calcRow(id) { 
+            const row = document.getElementById(`row-${id}`); if(!row) return;
+            row.querySelector('.item-total').value = (row.querySelector('.item-qty').value||0) * (row.querySelector('.item-price').value||0); 
+            calculateGrandTotal(); 
+        }
+
+        function calculateGrandTotal() {
+            let sub = 0; document.querySelectorAll('.item-total').forEach(i => sub += parseFloat(i.value)||0);
+            const delVal = document.getElementById('orderDeliveryFee')?.value;
+            const taxVal = document.getElementById('orderTax')?.value;
+            const discVal = document.getElementById('orderDiscount')?.value;
+            const advVal = document.getElementById('orderAdvance')?.value;
+
+            const del = parseFloat(delVal)||0;
+            const tax = parseFloat(taxVal)||0;
+            const disc = parseFloat(discVal)||0;
+            const adv = parseFloat(advVal)||0;
+            
+            const total = Math.max(0, sub + del + ((sub+del)*tax/100) - disc);
+            const bal = Math.max(0, total - adv);
+
+            safeSetText('orderSubtotal', formatCurr(sub));
+            safeSetText('orderGrandTotal', formatCurr(total));
+            safeSetText('orderBalance', formatCurr(bal));
+        }
+
+        function togglePaymentMethodReq() {
+            const statusEl = document.getElementById('orderStatus');
+            const pmSelect = document.getElementById('orderPaymentMethod');
+            if(!statusEl || !pmSelect) return;
+            
+            if (statusEl.value === 'Pending') pmSelect.value = 'Pending';
+            else if (pmSelect.value === 'Pending') pmSelect.value = 'Cash'; 
+        }
+
+        const orderFormEl = document.getElementById('orderForm');
+        if(orderFormEl) {
+            orderFormEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const items = Array.from(document.querySelectorAll('.item-row')).map(row => {
+                    const dv = row.querySelector('.item-dish').value;
+                    return { dish: dv==='Custom'?row.querySelector('.item-custom-dish').value:dv, qty: parseInt(row.querySelector('.item-qty').value), price: parseFloat(row.querySelector('.item-price').value), total: parseFloat(row.querySelector('.item-total').value) };
+                });
+                if(!items.length) return showToast('Add items', 'danger');
+
+                const id = document.getElementById('orderId').value || generateId();
+                const gTotalEl = document.getElementById('orderGrandTotal');
+                const balEl = document.getElementById('orderBalance');
+                
+                const total = gTotalEl ? parseFloat(gTotalEl.innerText.replace(/,/g,'')) : 0;
+                const balance = balEl ? parseFloat(balEl.innerText.replace(/,/g,'')) : 0;
+                
+                const oDate = document.getElementById('orderDate').value;
+                const oDue = document.getElementById('orderDueDate').value;
+
+                const o = {
+                    id, customerName: document.getElementById('orderName').value, phone: document.getElementById('orderPhone').value,
+                    area: document.getElementById('orderArea').value, type: document.getElementById('orderType').value,
+                    items, subtotal: items.reduce((s,i)=>s+i.total,0), deliveryFee: parseFloat(document.getElementById('orderDeliveryFee').value)||0,
+                    taxPercent: parseFloat(document.getElementById('orderTax').value)||0, discount: parseFloat(document.getElementById('orderDiscount').value)||0,
+                    advancePaid: parseFloat(document.getElementById('orderAdvance').value)||0, total, balance,
+                    status: document.getElementById('orderStatus').value, paymentMethod: document.getElementById('orderPaymentMethod').value,
+                    fulfillmentStatus: document.getElementById('orderFulfillment').value, notes: document.getElementById('orderNotes').value,
+                    timestamp: oDate ? new Date(oDate).toISOString() : new Date().toISOString(),
+                    dueDate: oDue ? new Date(oDue).toISOString() : null
+                };
+
+                const existingIdx = db.orders.findIndex(x=>x.id===id);
+                if(existingIdx > -1) { db.orders[existingIdx] = o; logActivity('Updated Order', db.settings.profile.prefix+id.substring(0,4)); }
+                else { db.orders.unshift(o); logActivity('Created Order', db.settings.profile.prefix+id.substring(0,4)); }
+                
+                saveData(); renderOrders(); toggleOrderForm(); showToast('Saved');
+            });
+        }
+
+        async function pickContact() {
+            try {
+                if (!('contacts' in navigator && 'ContactsManager' in window)) return showToast("Contact picker not supported.", "warning");
+                if (window.self !== window.top) return showToast("Contacts blocked in preview window. Open app directly.", "warning");
+                
+                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    if (contacts[0].name && contacts[0].name.length > 0) safeSetValue('orderName', contacts[0].name[0]);
+                    if (contacts[0].tel && contacts[0].tel.length > 0) {
+                        let p = contacts[0].tel[0].replace(/\D/g, ''); 
+                        if(p.length > 10 && p.startsWith('91')) p = p.substring(2);
+                        safeSetValue('orderPhone', p); 
+                        checkRepeatCustomer();
+                    }
+                }
+            } catch (ex) { 
+                console.error(ex);
+            }
+        }
+
+        function checkRepeatCustomer() {
+            const pEl = document.getElementById('orderPhone');
+            const idEl = document.getElementById('orderId');
+            if(!pEl || !idEl) return;
+            
+            const p = pEl.value;
+            const id = idEl.value;
+            const b = document.getElementById('repeat-customer-badge');
+            if(b) b.classList.toggle('hidden-view', !(p.length > 5 && db.orders.some(o => o.phone === p && o.id !== id)));
+        }
+
+        function toggleSelectAllOrders(el) { document.querySelectorAll('.ord-checkbox').forEach(cb => cb.checked = el.checked); checkBulkBtn(); }
+        function checkBulkBtn() { 
+            const b = document.getElementById('btn-bulk-delete');
+            if(b) b.classList.toggle('hidden', document.querySelectorAll('.ord-checkbox:checked').length === 0); 
+        }
+        function bulkDeleteOrders() {
+            const checked = Array.from(document.querySelectorAll('.ord-checkbox:checked')).map(cb => cb.dataset.id);
+            if(checked.length === 0) return;
+            openConfirm("Delete Multiple", `Delete ${checked.length} orders?`, () => {
+                db.orders = db.orders.filter(o => !checked.includes(o.id));
+                logActivity('Bulk Deleted', `${checked.length} orders`);
+                const sa = document.getElementById('selectAllOrders');
+                if(sa) sa.checked = false;
+                saveData(); renderOrders();
+            });
+        }
+        function cloneOrder(id) {
+            const o = db.orders.find(x=>x.id===id); if(!o) return;
+            const cloned = JSON.parse(JSON.stringify(o));
+            cloned.id = generateId(); cloned.timestamp = new Date().toISOString(); cloned.status = 'Pending'; cloned.fulfillmentStatus = 'New'; cloned.advancePaid = 0; cloned.balance = cloned.total; cloned.paymentMethod = 'Pending';
+            db.orders.unshift(cloned); logActivity('Cloned Order', db.settings.profile.prefix+cloned.id.substring(0,4));
+            saveData(); renderOrders(); showToast('Invoice Cloned', 'info');
+        }
+        function setOrderFilter(s) {
+            currentOrderFilter = s;
+            ['All','Pending','Paid'].forEach(f => { 
+                const btn = document.getElementById(`btn-filt-${f.toLowerCase().substring(0,4)}`);
+                if(btn) btn.className = f===s ? 'px-3 py-1 text-sm font-medium rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white' : 'px-3 py-1 text-sm font-medium rounded-md bg-transparent border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'; 
+            });
+            renderOrders();
+        }
+
+        function renderOrders() {
+            const stEl = document.getElementById('searchOrder');
+            const st = stEl ? stEl.value.toLowerCase() : '';
+            const filtered = db.orders.filter(o => (o.customerName.toLowerCase().includes(st) || o.id.toLowerCase().includes(st) || o.phone.includes(st)) && (currentOrderFilter==='All' || o.status===currentOrderFilter));
+            
+            const tbody = document.getElementById('orders-table-body'), mob = document.getElementById('orders-mobile-list');
+            if(!tbody || !mob) return;
+
+            tbody.innerHTML = ''; mob.innerHTML = '';
+            const noMsg = document.getElementById('no-orders-msg');
+            if(noMsg) noMsg.classList.toggle('hidden-view', filtered.length > 0);
+
+            filtered.forEach(o => {
+                const prefId = db.settings.profile.prefix + o.id.substring(0,5).toUpperCase();
+                const dt = new Date(o.timestamp).toLocaleDateString('en-IN', {month:'short', day:'numeric'});
+                const isDue = o.status === 'Pending' && o.balance > 0;
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700">
+                        <td class="px-4 py-3"><input type="checkbox" class="ord-checkbox" data-id="${o.id}" onchange="checkBulkBtn()"></td>
+                        <td class="px-4 py-3"><div class="font-mono text-xs">${prefId}</div><div class="font-bold">${dt}</div><div class="text-[10px] text-primary">${o.type||'Delivery'}</div></td>
+                        <td class="px-4 py-3"><div class="font-bold">${o.customerName}</div><div class="text-xs text-gray-500">${o.phone}</div></td>
+                        <td class="px-4 py-3 text-xs">${o.items.length} items</td>
+                        <td class="px-4 py-3"><div class="font-bold text-gray-900 dark:text-white">${db.settings.profile.currency}${formatCurr(o.total)}</div>${isDue?`<div class="text-xs text-red-500 font-bold">Bal: ${db.settings.profile.currency}${formatCurr(o.balance||o.total)}</div>`:''}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 text-[10px] rounded-full ${o.status==='Paid'?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${o.status}</span><div class="mt-1 text-[10px] text-gray-500">${o.fulfillmentStatus||'New'}</div></td>
+                        <td class="px-4 py-3 text-right">
+                            <button onclick="cloneOrder('${o.id}')" class="text-indigo-500 p-1 mx-1" title="Clone"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="openInvoiceModal('${o.id}')" class="text-gray-500 p-1 mx-1" title="Print"><i class="fa-solid fa-print"></i></button>
+                            <button onclick="editOrder('${o.id}')" class="text-blue-500 p-1 mx-1"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    </tr>`;
+                
+                mob.innerHTML += `<div class="p-4 bg-white dark:bg-gray-800 border-b dark:border-gray-700"><div class="flex justify-between"><div><span class="font-bold">${o.customerName}</span><p class="text-xs text-gray-500">${prefId} • ${dt}</p></div><div class="text-right font-bold text-lg">${db.settings.profile.currency}${formatCurr(o.total)}</div></div><div class="flex justify-between mt-3"><span class="px-2 py-1 text-[10px] rounded ${o.status==='Paid'?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${o.status}</span><div><button onclick="openInvoiceModal('${o.id}')" class="p-1 mr-2 text-gray-500"><i class="fa-solid fa-print"></i></button><button onclick="editOrder('${o.id}')" class="p-1 text-blue-500"><i class="fa-solid fa-pen"></i></button></div></div></div>`;
+            });
+        }
+        function editOrder(id) { 
+            toggleOrderForm(db.orders.find(o => o.id === id)); 
+            const cont = document.getElementById('order-form-container');
+            if(cont) cont.scrollIntoView({behavior: 'smooth'}); 
+        }
+
+        // --- INVOICE PRINTING ---
+        function openInvoiceModal(id) {
+            const o = db.orders.find(x=>x.id===id); if(!o) return;
+            const p = db.settings.profile;
+            const paper = document.getElementById('invoice-paper');
+            if(!paper) return; 
+            
+            if(p.invoiceTemplate === 'thermal') {
+                document.body.classList.add('print-thermal-mode');
+                paper.className = 'bg-white text-black relative';
+            } else {
+                document.body.classList.remove('print-thermal-mode');
+                paper.className = `bg-white text-black w-full max-w-3xl min-h-[1056px] shadow-2xl relative template-${p.invoiceTemplate}`;
+                if(p.canvaUrl) { paper.style.backgroundImage = `url('${p.canvaUrl}')`; paper.style.backgroundSize = '100% 100%'; } else paper.style.backgroundImage = 'none';
+            }
+
+            const wm = document.getElementById('inv-watermark');
+            if(p.invoiceTemplate !== 'thermal' && wm) {
+                if(o.status === 'Paid') { wm.innerText = 'PAID'; wm.style.display = 'block'; wm.style.color = 'var(--color-primary)'; wm.style.borderColor = 'var(--color-primary)'; }
+                else if(o.status === 'Pending' && o.dueDate && new Date(o.dueDate) < new Date()) { wm.innerText = 'OVERDUE'; wm.style.display = 'block'; wm.style.color = '#ef4444'; wm.style.borderColor = '#ef4444'; }
+                else { wm.style.display = 'none'; }
+            }
+
+            safeSetText('inv-b-name', p.name);
+            safeSetText('inv-b-phone', p.phone + (p.email? ` | ${p.email}` : ''));
+            safeSetText('inv-id', p.prefix + o.id.substring(0,5).toUpperCase());
+            safeSetText('inv-date', new Date(o.timestamp).toLocaleDateString());
+            safeSetText('inv-type', o.type || 'Delivery');
+            
+            if(p.invoiceTemplate !== 'thermal') {
+                try {
+                    JsBarcode("#inv-barcode", o.id.substring(0,8).toUpperCase(), {format:"CODE128", height:40, displayValue:false, background:"transparent", lineColor:p.invoiceTemplate==='modern'?"#ffffff":"#000000"});
+                } catch(e) {}
+            }
+
+            safeSetText('inv-name', o.customerName); 
+            safeSetText('inv-phone', o.phone); 
+            safeSetText('inv-area', o.area||'');
+            
+            const nWrap = document.getElementById('inv-notes-wrap');
+            if(o.notes) { 
+                if(nWrap) nWrap.classList.remove('hidden'); 
+                safeSetText('inv-notes', o.notes); 
+            } else {
+                if(nWrap) nWrap.classList.add('hidden');
+            }
+
+            const iBody = document.getElementById('inv-items-body');
+            if(iBody) {
+                iBody.innerHTML = o.items.map(i => `<tr><td class="py-2">${i.dish}</td><td class="py-2 text-center">${i.qty}</td><td class="py-2 text-right">${formatCurr(i.price)}</td><td class="py-2 text-right font-bold">${formatCurr(i.total)}</td></tr>`).join('');
+            }
+            
+            safeSetText('inv-subtotal', formatCurr(o.subtotal));
+            
+            const delRow = document.getElementById('inv-del-row');
+            if(o.deliveryFee > 0) { if(delRow) delRow.classList.remove('hidden'); safeSetText('inv-del-amt', formatCurr(o.deliveryFee)); } else if(delRow) delRow.classList.add('hidden');
+            
+            const taxRow = document.getElementById('inv-tax-row');
+            if(o.taxPercent > 0) { if(taxRow) taxRow.classList.remove('hidden'); safeSetText('inv-tax-pct', o.taxPercent); safeSetText('inv-tax-amt', formatCurr(((o.subtotal+o.deliveryFee)*o.taxPercent)/100)); } else if(taxRow) taxRow.classList.add('hidden');
+            
+            const discRow = document.getElementById('inv-discount-row');
+            if(o.discount > 0) { if(discRow) discRow.classList.remove('hidden'); safeSetText('inv-discount-amt', formatCurr(o.discount)); } else if(discRow) discRow.classList.add('hidden');
+            
+            safeSetText('inv-total', formatCurr(o.total));
+            
+            const advRow = document.getElementById('inv-adv-row');
+            const balRow = document.getElementById('inv-bal-row');
+            if(o.advancePaid > 0) { 
+                if(advRow) advRow.classList.remove('hidden'); safeSetText('inv-adv-amt', formatCurr(o.advancePaid)); 
+                if(balRow) balRow.classList.remove('hidden'); safeSetText('inv-bal-amt', formatCurr(o.balance)); 
+            } else { 
+                if(advRow) advRow.classList.add('hidden'); 
+                if(balRow) balRow.classList.add('hidden'); 
+            }
+
+            safeSetText('inv-terms', p.terms || '');
+            safeSetText('inv-b-upi', p.upi || 'N/A');
+
+            const m = document.getElementById('invoice-modal');
+            if(m) m.classList.remove('hidden-view');
+        }
+        
+        function closeInvoiceModal() { 
+            const m = document.getElementById('invoice-modal');
+            if(m) m.classList.add('hidden-view'); 
+            document.body.classList.remove('print-thermal-mode'); 
+        }
+
+        // --- KITCHEN DISPLAY (KDS) ---
+        function renderKDS() {
+            const colNew = document.getElementById('kds-col-new');
+            const colPrep = document.getElementById('kds-col-prep');
+            const colReady = document.getElementById('kds-col-ready');
+            
+            if(!colNew || !colPrep || !colReady) return;
+            
+            colNew.innerHTML=''; colPrep.innerHTML=''; colReady.innerHTML='';
+            let countNew=0, countPrep=0, countReady=0;
+
+            const activeOrders = db.orders.filter(o => o.fulfillmentStatus !== 'Delivered' && o.fulfillmentStatus !== 'Cancelled').sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+            
+            activeOrders.forEach(o => {
+                const isOverdue = o.dueDate && new Date(o.dueDate) < new Date();
+                const itemsList = o.items.map(i => `<div class="flex justify-between border-b dark:border-gray-700 py-1"><span class="font-bold">${i.qty}x</span> <span>${i.dish}</span></div>`).join('');
+                
+                let btnHtml = '';
+                if(o.fulfillmentStatus === 'New' || !o.fulfillmentStatus) {
+                    btnHtml = `<button onclick="updateKDS('${o.id}', 'Preparing')" class="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 rounded text-sm shadow">Start Preparing</button>`;
+                    countNew++;
+                } else if(o.fulfillmentStatus === 'Preparing') {
+                    btnHtml = `<button onclick="updateKDS('${o.id}', 'Ready')" class="w-full mt-3 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded text-sm shadow">Mark Ready</button>`;
+                    countPrep++;
+                } else if(o.fulfillmentStatus === 'Ready') {
+                    btnHtml = `<button onclick="updateKDS('${o.id}', 'Delivered')" class="w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded text-sm shadow">Mark Delivered</button>`;
+                    countReady++;
+                }
+
+                const card = `
+                    <div class="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-sm border ${isOverdue?'border-red-500':'border-gray-200 dark:border-gray-600'}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div><p class="font-bold text-sm dark:text-white">${o.customerName}</p><p class="text-xs text-gray-500">${db.settings.profile.prefix}${o.id.substring(0,5).toUpperCase()} • ${o.type||'Delivery'}</p></div>
+                            ${isOverdue ? '<i class="fa-solid fa-clock text-red-500"></i>' : ''}
+                        </div>
+                        <div class="text-xs text-gray-600 dark:text-gray-300 mt-2 mb-2 max-h-32 overflow-y-auto">${itemsList}</div>
+                        ${o.notes ? `<div class="text-[10px] bg-yellow-50 dark:bg-yellow-900/30 p-1.5 rounded text-yellow-800 dark:text-yellow-400 mb-2 italic"><i class="fa-solid fa-note-sticky"></i> ${o.notes}</div>` : ''}
+                        ${btnHtml}
+                    </div>
+                `;
+
+                if(o.fulfillmentStatus === 'New' || !o.fulfillmentStatus) colNew.innerHTML += card;
+                else if(o.fulfillmentStatus === 'Preparing') colPrep.innerHTML += card;
+                else if(o.fulfillmentStatus === 'Ready') colReady.innerHTML += card;
+            });
+
+            safeSetText('kds-new-count', countNew);
+            safeSetText('kds-prep-count', countPrep);
+            safeSetText('kds-ready-count', countReady);
+        }
+
+        function updateKDS(id, status) {
+            const idx = db.orders.findIndex(o => o.id === id);
+            if(idx > -1) {
+                db.orders[idx].fulfillmentStatus = status;
+                logActivity(`Marked ${status}`, db.settings.profile.prefix+id.substring(0,4));
+                saveData(); renderKDS(); renderOrders();
+            }
+        }
+
+
+        // --- CRM & SUPPLIERS ---
+        function toggleCrmTab(tab) {
+            const vCust = document.getElementById('crm-clients-view');
+            const vSup = document.getElementById('crm-suppliers-view');
+            const bCust = document.getElementById('btn-tab-customers');
+            const bSup = document.getElementById('btn-tab-suppliers');
+            const bAdd = document.getElementById('btn-add-supplier');
+            const sInp = document.getElementById('searchCustomer');
+            
+            if(!vCust || !vSup) return;
+
+            if(tab === 'customers') {
+                vCust.classList.remove('hidden-view');
+                vSup.classList.add('hidden-view');
+                if(bCust) bCust.className = "px-4 py-1.5 rounded bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white";
+                if(bSup) bSup.className = "px-4 py-1.5 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300";
+                if(bAdd) bAdd.classList.add('hidden');
+                if(sInp) sInp.placeholder = "Search directory...";
+            } else {
+                vCust.classList.add('hidden-view');
+                vSup.classList.remove('hidden-view');
+                if(bSup) bSup.className = "px-4 py-1.5 rounded bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white";
+                if(bCust) bCust.className = "px-4 py-1.5 rounded text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300";
+                if(bAdd) bAdd.classList.remove('hidden');
+                if(sInp) sInp.placeholder = "Search suppliers...";
+            }
+            renderCrmData();
+        }
+
+        function renderCrmData() {
+            const vCust = document.getElementById('crm-clients-view');
+            if(vCust && !vCust.classList.contains('hidden-view')) renderCustomers();
+            else renderSuppliers();
+        }
+
+        function renderCustomers() {
+            const stEl = document.getElementById('searchCustomer');
+            const st = stEl ? stEl.value.toLowerCase() : '';
+            const cMap = {};
+            db.orders.forEach(o => {
+                if(!cMap[o.phone]) cMap[o.phone] = { name: o.customerName, phone: o.phone, orders: 0, spent: 0, last: o.timestamp, tag: '', notes: '' };
+                cMap[o.phone].orders++; cMap[o.phone].spent += o.total; if(new Date(o.timestamp)>new Date(cMap[o.phone].last)) cMap[o.phone].last = o.timestamp;
+            });
+            db.customers.forEach(c => { if(cMap[c.phone]) { cMap[c.phone].tag = c.tag; cMap[c.phone].notes = c.notes; } });
+
+            const arr = Object.values(cMap).filter(c => c.name.toLowerCase().includes(st) || c.phone.includes(st)).sort((a,b)=>b.spent-a.spent);
+            const tbody = document.getElementById('customers-table-body'), mob = document.getElementById('customers-mobile-list');
+            if(!tbody || !mob) return;
+
+            tbody.innerHTML=''; mob.innerHTML='';
+            
+            arr.forEach(c => {
+                const tagSpan = c.tag ? `<span class="px-2 py-0.5 text-[10px] bg-blue-100 text-blue-800 rounded-full font-bold">${c.tag}</span>` : '';
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td class="px-4 py-3"><div class="font-bold">${c.name}</div><div class="text-xs text-gray-500">${c.phone}</div></td>
+                        <td class="px-4 py-3"><div class="mb-1">${tagSpan}</div><div class="text-xs text-gray-500 italic truncate max-w-[150px]" title="${c.notes}">${c.notes||'-'}</div></td>
+                        <td class="px-4 py-3 text-center">${c.orders}</td>
+                        <td class="px-4 py-3 text-right font-bold text-green-600">${db.settings.profile.currency}${formatCurr(c.spent)}</td>
+                        <td class="px-4 py-3 text-right"><button onclick="editCrm('${c.phone}', '${c.tag}', '${c.notes.replace(/'/g,"\\'")}')" class="text-blue-500 p-2"><i class="fa-solid fa-pen"></i></button></td>
+                    </tr>`;
+            });
+        }
+
+        function editCrm(phone, tag, notes) {
+            safeSetValue('crm-phone', phone); 
+            safeSetValue('crm-tag', tag); 
+            safeSetValue('crm-notes', notes);
+            const m = document.getElementById('crm-modal');
+            if(m) m.classList.remove('hidden-view');
+        }
+        
+        function saveCrmProfile() {
+            const p = document.getElementById('crm-phone').value; 
+            const t = document.getElementById('crm-tag').value; 
+            const n = document.getElementById('crm-notes').value;
+            const idx = db.customers.findIndex(c => c.phone === p);
+            if(idx > -1) { db.customers[idx].tag = t; db.customers[idx].notes = n; } else db.customers.push({phone: p, tag: t, notes: n});
+            saveData(); renderCustomers(); 
+            const m = document.getElementById('crm-modal');
+            if(m) m.classList.add('hidden-view'); 
+            showToast('Profile updated');
+        }
+
+        function renderSuppliers() {
+            const stEl = document.getElementById('searchCustomer');
+            const st = stEl ? stEl.value.toLowerCase() : '';
+            const arr = db.suppliers.filter(s => s.name.toLowerCase().includes(st) || s.cat.toLowerCase().includes(st));
+            const tbody = document.getElementById('suppliers-table-body'), mob = document.getElementById('suppliers-mobile-list');
+            if(!tbody || !mob) return;
+
+            tbody.innerHTML=''; mob.innerHTML='';
+            
+            arr.forEach(s => {
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                        <td class="px-4 py-3 font-bold">${s.name}</td>
+                        <td class="px-4 py-3"><span class="px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 rounded">${s.cat}</span></td>
+                        <td class="px-4 py-3 text-sm">${s.contact||'-'}</td>
+                        <td class="px-4 py-3 text-xs text-gray-500">${s.notes||'-'}</td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <button onclick="editSupplier('${s.name}')" class="text-blue-500 p-2"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="openConfirm('Delete Supplier', 'Remove vendor?', ()=>{db.suppliers=db.suppliers.filter(x=>x.name!=='${s.name}');saveData();renderSuppliers()})" class="text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function openSupplierForm(name = '') {
+            const m = document.getElementById('supplier-modal');
+            if(!m) return;
+
+            if(name) {
+                const s = db.suppliers.find(x=>x.name===name);
+                safeSetValue('sup-old-name', s.name); 
+                safeSetValue('sup-name', s.name);
+                safeSetValue('sup-cat', s.cat); 
+                safeSetValue('sup-contact', s.contact); 
+                safeSetValue('sup-notes', s.notes);
+            } else {
+                safeSetValue('sup-old-name', ''); 
+                safeSetValue('sup-name', '');
+                safeSetValue('sup-cat', ''); 
+                safeSetValue('sup-contact', ''); 
+                safeSetValue('sup-notes', '');
+            }
+            m.classList.remove('hidden-view');
+        }
+        function editSupplier(name) { openSupplierForm(name); }
+        
+        function saveSupplierProfile() {
+            const old = document.getElementById('sup-old-name').value;
+            const s = { name: document.getElementById('sup-name').value.trim(), cat: document.getElementById('sup-cat').value, contact: document.getElementById('sup-contact').value, notes: document.getElementById('sup-notes').value };
+            if(!s.name) return showToast('Name required', 'danger');
+            
+            if(old) { const idx = db.suppliers.findIndex(x=>x.name===old); if(idx>-1) db.suppliers[idx] = s; }
+            else { db.suppliers.push(s); }
+            
+            saveData(); renderSuppliers(); 
+            const m = document.getElementById('supplier-modal');
+            if(m) m.classList.add('hidden-view'); 
+            showToast('Supplier saved');
+        }
+
+        // --- EXPENSES ---
+        function toggleCategoryModal() { 
+            const m = document.getElementById('category-modal'); 
+            if(m) {
+                m.classList.toggle('hidden-view'); 
+                if(!m.classList.contains('hidden-view')) renderCategoryList(); 
+            }
+        }
+
+        function renderCategoryList() {
+            const cl = document.getElementById('category-list');
+            if(cl) {
+                cl.innerHTML = db.settings.expenseCategories.map(c => `
+                    <li class="p-3 flex justify-between items-center"><span class="text-sm font-medium">${c}</span><button onclick="db.settings.expenseCategories=db.settings.expenseCategories.filter(x=>x!=='${c}');saveData();renderCategoryList();renderSettings()" class="text-red-400 p-1"><i class="fa-solid fa-trash"></i></button></li>
+                `).join('');
+            }
+        }
+
+        function addExpenseCategory() {
+            const val = document.getElementById('newCategoryInput').value.trim();
+            if(val && !db.settings.expenseCategories.includes(val)) { 
+                db.settings.expenseCategories.push(val); 
+                saveData(); 
+                safeSetValue('newCategoryInput', ''); 
+                renderCategoryList(); 
+                renderSettings(); 
+            }
+        }
+
+        function toggleExpenseForm(editExp = null) { 
+            const f = document.getElementById('expense-form-container'); 
+            if(!f) return;
+            
+            f.classList.toggle('hidden-view'); 
+            if(!f.classList.contains('hidden-view')) { 
+                if(editExp) {
+                    safeSetValue('expenseId', editExp.id);
+                    safeSetValue('expCategory', editExp.category);
+                    safeSetValue('expAmount', editExp.amount);
+                    safeSetValue('expDate', editExp.date);
+                    safeSetValue('expNotes', editExp.notes || '');
+                    safeSetValue('expReceiptBase64', editExp.receipt || '');
+                } else {
+                    const eForm = document.getElementById('expenseForm');
+                    if(eForm) eForm.reset(); 
+                    safeSetValue('expenseId', ''); 
+                    safeSetValue('expDate', new Date().toISOString().split('T')[0]); 
+                    safeSetValue('expReceiptBase64', ''); 
+                }
+            } 
+        }
+        
+        const expRectEl = document.getElementById('expReceipt');
+        if(expRectEl) {
+            expRectEl.addEventListener('change', function(e) {
+                const file = e.target.files[0]; if(!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image(); img.onload = () => {
+                        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                        const max = 400; let w = img.width; let h = img.height;
+                        if(w > h) { if(w > max) { h *= max / w; w = max; } } else { if(h > max) { w *= max / h; h = max; } }
+                        canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
+                        safeSetValue('expReceiptBase64', canvas.toDataURL('image/jpeg', 0.6)); 
+                    }; img.src = ev.target.result;
+                }; reader.readAsDataURL(file);
+            });
+        }
+
+        const expFormEl = document.getElementById('expenseForm');
+        if(expFormEl) {
+            expFormEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const id = document.getElementById('expenseId').value || generateId();
+                const exp = { 
+                    id, 
+                    category: document.getElementById('expCategory').value, 
+                    amount: parseFloat(document.getElementById('expAmount').value), 
+                    date: document.getElementById('expDate').value, 
+                    notes: document.getElementById('expNotes').value, 
+                    receipt: document.getElementById('expReceiptBase64').value 
+                };
+                const idx = db.expenses.findIndex(x=>x.id===id);
+                if(idx > -1) db.expenses[idx] = exp; else db.expenses.unshift(exp);
+                logActivity('Logged Expense', `${exp.category} (${db.settings.profile.currency}${exp.amount})`);
+                saveData(); renderExpenses(); toggleExpenseForm(); showToast('Saved');
+            });
+        }
+
+        function renderExpenses() {
+            const filterCatEl = document.getElementById('filterExpCategory');
+            const filterCat = filterCatEl ? filterCatEl.value : 'All';
+            const filteredExp = filterCat === 'All' ? db.expenses : db.expenses.filter(x => x.category === filterCat);
+            const tbody = document.getElementById('expenses-table-body'), mobList = document.getElementById('expenses-mobile-list');
+            if(!tbody || !mobList) return;
+
+            tbody.innerHTML=''; mobList.innerHTML='';
+            const msg = document.getElementById('no-expenses-msg');
+            if(msg) msg.classList.toggle('hidden-view', filteredExp.length > 0);
+
+            filteredExp.forEach(x => {
+                const recHtml = x.receipt ? `<img src="${x.receipt}" onclick="viewImage('${x.receipt}')" class="w-10 h-10 object-cover rounded cursor-pointer border">` : '-';
+                tbody.innerHTML += `<tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <td class="px-4 py-3">${new Date(x.date).toLocaleDateString()}</td>
+                    <td class="px-4 py-3"><div class="font-bold">${x.category}</div><div class="text-xs text-gray-500">${x.notes||''}</div></td>
+                    <td class="px-4 py-3">${recHtml}</td>
+                    <td class="px-4 py-3 font-bold text-red-500">${db.settings.profile.currency}${formatCurr(x.amount)}</td>
+                    <td class="px-4 py-3 text-right"><button onclick="editExpense('${x.id}')" class="text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="openConfirm('Delete', 'Delete Expense?', ()=>{db.expenses=db.expenses.filter(e=>e.id!=='${x.id}');saveData();renderExpenses()})" class="text-red-500"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>`;
+                
+                mobList.innerHTML += `<div class="p-4 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex justify-between"><div class="flex gap-3">${x.receipt?`<img src="${x.receipt}" onclick="viewImage('${x.receipt}')" class="w-12 h-12 object-cover rounded border">`:''}<div><p class="font-bold text-sm">${x.category}</p><p class="text-xs text-gray-500">${new Date(x.date).toLocaleDateString()}</p></div></div><div class="text-right"><p class="font-bold text-red-500 mb-1">${db.settings.profile.currency}${formatCurr(x.amount)}</p><button onclick="editExpense('${x.id}')" class="text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="openConfirm('Delete', 'Delete Expense?', ()=>{db.expenses=db.expenses.filter(e=>e.id!=='${x.id}');saveData();renderExpenses()})" class="text-red-500"><i class="fa-solid fa-trash"></i></button></div></div>`;
+            });
+        }
+        function editExpense(id) { 
+            toggleExpenseForm(db.expenses.find(x => x.id === id)); 
+            const form = document.getElementById('expense-form-container');
+            if(form) form.scrollIntoView({behavior: 'smooth'}); 
+        }
+        
+        function viewImage(src) { 
+            const ims = document.getElementById('image-modal-src');
+            const im = document.getElementById('image-modal');
+            if(ims && im) {
+                ims.src = src; 
+                im.classList.remove('hidden-view'); 
+            }
+        }
+
+        // --- CUSTOM REPORTS ---
+        function generateCustomReport() {
+            const startInput = document.getElementById('rep-start').value;
+            const endInput = document.getElementById('rep-end').value;
+            if(!startInput || !endInput) return showToast('Select both dates', 'warning');
+
+            const start = new Date(startInput); start.setHours(0,0,0,0);
+            const end = new Date(endInput); end.setHours(23,59,59,999);
+            if(start > end) return showToast('Start date must be before end date', 'warning');
+
+            const resCont = document.getElementById('report-results-container');
+            const mtState = document.getElementById('report-empty-state');
+            if(mtState) mtState.classList.add('hidden-view');
+            if(resCont) resCont.classList.remove('hidden-view');
+            
+            const dateStr = `${start.toLocaleDateString('en-IN', {month:'short', day:'numeric', year:'numeric'})} - ${end.toLocaleDateString('en-IN', {month:'short', day:'numeric', year:'numeric'})}`;
+            safeSetText('res-date-range', dateStr);
+            safeSetText('print-rep-date-range', dateStr);
+            safeSetText('print-rep-bname', db.settings.profile.name || "Business Report");
+            safeSetText('print-rep-timestamp', new Date().toLocaleString('en-IN'));
+
+            const rOrders = db.orders.filter(o => { const d = new Date(o.timestamp); return d >= start && d <= end; });
+            const rExpenses = db.expenses.filter(x => { const d = new Date(x.date); return d >= start && d <= end; });
+            const rIncome = db.income.filter(x => { const d = new Date(x.date); return d >= start && d <= end; });
+
+            const revO = rOrders.reduce((s, o) => s + o.total, 0);
+            const revI = rIncome.reduce((s, x) => s + x.amount, 0);
+            const revTotal = revO + revI;
+            
+            const exp = rExpenses.reduce((s, x) => s + x.amount, 0);
+            const profit = revTotal - exp;
+            
+            let totalTax = 0, totalDiscounts = 0, pendingDues = 0;
+            const payMethods = {};
+
+            rOrders.forEach(o => {
+                totalDiscounts += (o.discount || 0);
+                if (o.taxPercent > 0) totalTax += ((o.subtotal || o.total) * o.taxPercent) / 100;
+                if (o.status === 'Pending') pendingDues += o.balance || o.total;
+                else if (o.status === 'Paid') { const method = o.paymentMethod || 'Cash'; payMethods[method] = (payMethods[method] || 0) + o.total; }
+            });
+            
+            safeSetText('res-revenue', formatCurr(revTotal));
+            safeSetText('res-expenses', formatCurr(exp));
+            
+            const profEl = document.getElementById('res-profit');
+            if(profEl) {
+                profEl.innerText = formatCurr(profit);
+                profEl.className = profit >= 0 ? "text-xl font-black text-green-600 dark:text-green-400 mt-1" : "text-xl font-black text-red-600 dark:text-red-400 mt-1";
+            }
+            
+            safeSetText('res-pending-dues', formatCurr(pendingDues));
+            safeSetText('res-order-count', rOrders.length);
+            safeSetText('res-aov', formatCurr(rOrders.length ? Math.round(revO/rOrders.length) : 0));
+            safeSetText('res-tax', formatCurr(totalTax));
+            safeSetText('res-discounts', formatCurr(totalDiscounts));
+
+            // Breakdowns
+            const expCat = {}; rExpenses.forEach(x => expCat[x.category] = (expCat[x.category]||0) + x.amount);
+            const expList = Object.keys(expCat).map(k => ({name:k, val:expCat[k]})).sort((a,b)=>b.val-a.val);
+            const expUl = document.getElementById('res-exp-list');
+            if(expUl) {
+                if(expList.length === 0) expUl.innerHTML = '<li class="text-gray-500 italic">No expenses.</li>';
+                else expUl.innerHTML = expList.map(e => `<li class="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-gray-700"><span class="text-gray-600 dark:text-gray-300 font-medium">${e.name}</span><span class="font-bold text-red-500">${db.settings.profile.currency}${formatCurr(e.val)}</span></li>`).join('');
+            }
+
+            const incCat = {}; rIncome.forEach(x => incCat[x.category] = (incCat[x.category]||0) + x.amount);
+            const incList = Object.keys(incCat).map(k => ({name:k, val:incCat[k]})).sort((a,b)=>b.val-a.val);
+            const incUl = document.getElementById('res-inc-list');
+            if(incUl) {
+                if(incList.length === 0) incUl.innerHTML = '<li class="text-gray-500 italic">No extra income.</li>';
+                else incUl.innerHTML = incList.map(e => `<li class="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-gray-700"><span class="text-gray-600 dark:text-gray-300 font-medium">${e.name}</span><span class="font-bold text-blue-500">+${db.settings.profile.currency}${formatCurr(e.val)}</span></li>`).join('');
+            }
+
+            const payList = Object.keys(payMethods).map(k => ({name:k, val:payMethods[k]})).sort((a,b)=>b.val-a.val);
+            const payUl = document.getElementById('res-pay-list');
+            if(payUl) {
+                if(payList.length === 0) payUl.innerHTML = '<li class="text-gray-500 italic">No paid orders.</li>';
+                else payUl.innerHTML = payList.map(p => `<li class="flex justify-between items-center py-1.5 border-b border-gray-100 dark:border-gray-700"><span class="text-gray-600 dark:text-gray-300 font-medium">${p.name}</span><span class="font-bold text-gray-800 dark:text-gray-200">${db.settings.profile.currency}${formatCurr(p.val)}</span></li>`).join('');
+            }
+
+            const dishRev = {}; rOrders.forEach(o => o.items.forEach(i => dishRev[i.dish] = (dishRev[i.dish]||0) + i.total));
+            const dishList = Object.keys(dishRev).map(k => ({name:k, val:dishRev[k]})).sort((a,b)=>b.val-a.val).slice(0,5);
+            const dishUl = document.getElementById('res-dish-list');
+            if(dishUl) {
+                if(dishList.length === 0) dishUl.innerHTML = '<li class="text-gray-500 italic">No sales.</li>';
+                else dishUl.innerHTML = dishList.map((d, index) => `<li class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700"><span class="text-gray-700 dark:text-gray-300 font-medium truncate pr-2"><span class="text-xs text-gray-400 mr-2">#${index+1}</span>${d.name}</span><span class="font-bold text-green-600 dark:text-green-400">${db.settings.profile.currency}${formatCurr(d.val)}</span></li>`).join('');
+            }
+        }
+
+        function printProfessionalReport() {
+            document.body.classList.add('print-report-mode');
+            window.print();
+            setTimeout(() => document.body.classList.remove('print-report-mode'), 500);
+        }
+
+        function updateVIPList() {
+            const custSpend = {};
+            db.orders.forEach(o => custSpend[o.phone] = { name: o.customerName, spend: (custSpend[o.phone]?.spend || 0) + o.total, orders: (custSpend[o.phone]?.orders || 0) + 1 });
+            const vips = Object.values(custSpend).sort((a,b)=>b.spend-a.spend).slice(0, 5);
+            const ul = document.getElementById('vip-customer-list');
+            if(!ul) return;
+            
+            if(vips.length === 0) ul.innerHTML = '<li class="p-4 text-center text-gray-500 text-sm">No customers yet</li>';
+            else ul.innerHTML = vips.map((v, i) => `
+                <li class="p-3 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="w-6 h-6 rounded-full ${i===0?'bg-yellow-500':(i===1?'bg-gray-400':'bg-amber-700')} text-white flex items-center justify-center text-xs font-bold">${i+1}</div>
+                        <div><p class="font-bold text-sm text-white">${v.name}</p><p class="text-[10px] text-gray-400">${v.orders} Orders</p></div>
+                    </div>
+                    <div class="font-bold text-green-400">${db.settings.profile.currency}${formatCurr(v.spend)}</div>
+                </li>
+            `).join('');
+        }
+
+        // --- SETTINGS & MENU ---
+        function renderSettingsMenu() {
+            const ml = document.getElementById('settings-menu-list'); 
+            if(!ml) return;
+            
+            ml.innerHTML = '';
+            const p = db.settings.profile;
+            db.settings.menu.forEach(m => {
+                const margin = m.price > 0 ? (((m.price - (m.cost||0)) / m.price) * 100).toFixed(1) : 0;
+                ml.innerHTML += `<li class="p-3 flex justify-between items-center"><div class="${m.stock?'':'opacity-50'}"><span class="font-bold">${m.name}</span> <span class="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">${m.cat||'General'}</span><br><span class="text-sm text-green-600">Price: ${p.currency}${m.price}</span> | <span class="text-sm text-red-500">Cost: ${p.currency}${m.cost||0}</span> | <span class="text-xs font-bold text-gray-500">Margin: ${margin}%</span></div><div><button onclick="toggleStock('${m.id}')" class="text-xs px-2 py-1 mr-2 rounded ${m.stock?'bg-green-100 text-green-800':'bg-red-100 text-red-800'}">${m.stock?'In Stock':'Out'}</button><button onclick="db.settings.menu=db.settings.menu.filter(x=>x.id!=='${m.id}');saveData();renderSettingsMenu()" class="text-red-500"><i class="fa-solid fa-trash"></i></button></div></li>`;
+            });
+        }
+
+        function calcMargin() {
+            const p = parseFloat(document.getElementById('menu-dish-price')?.value)||0;
+            const c = parseFloat(document.getElementById('menu-dish-cost')?.value)||0;
+            const mSpan = document.getElementById('menu-dish-margin');
+            if(!mSpan) return;
+            
+            if(p > 0) {
+                const percent = (((p - c) / p) * 100).toFixed(1);
+                mSpan.innerText = `${percent}%`;
+                mSpan.className = percent > 30 ? 'text-green-600' : (percent > 0 ? 'text-yellow-600' : 'text-red-600');
+            } else { mSpan.innerText = '0%'; mSpan.className = 'text-gray-500'; }
+        }
+
+        function toggleStock(id) { 
+            const i=db.settings.menu.findIndex(m=>m.id===id); 
+            if(i > -1) {
+                db.settings.menu[i].stock = !db.settings.menu[i].stock; 
+                saveData(); 
+                renderSettingsMenu(); 
+            }
+        }
+
+        function renderSettings() {
+            const p = db.settings.profile;
+            safeSetValue('prof-currency', p.currency);
+            safeSetValue('prof-prefix', p.prefix);
+            safeSetValue('prof-target', p.monthlyTarget);
+            
+            const lockEn = document.getElementById('prof-lock-en');
+            if(lockEn) lockEn.checked = db.settings.appLock.enabled;
+            safeSetValue('prof-lock-pin', db.settings.appLock.pin);
+            
+            safeSetValue('prof-name', p.name);
+            safeSetValue('prof-phone', p.phone);
+            safeSetValue('prof-upi', p.upi);
+            safeSetValue('prof-inv-template', p.invoiceTemplate);
+            safeSetValue('prof-canva-url', p.canvaUrl);
+            safeSetValue('prof-terms', p.terms);
+
+            renderSettingsMenu();
+
+            const expCatEl = document.getElementById('expCategory');
+            if(expCatEl) expCatEl.innerHTML = db.settings.expenseCategories.map(c=>`<option>${c}</option>`).join('');
+            
+            const fltExpCatEl = document.getElementById('filterExpCategory');
+            if(fltExpCatEl) fltExpCatEl.innerHTML = `<option value="All">All</option>`+db.settings.expenseCategories.map(c=>`<option>${c}</option>`).join('');
+        }
+
+        const profileFormEl = document.getElementById('profileForm');
+        if(profileFormEl) {
+            profileFormEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                db.settings.profile = { 
+                    currency: document.getElementById('prof-currency').value, 
+                    prefix: document.getElementById('prof-prefix').value, 
+                    monthlyTarget: parseFloat(document.getElementById('prof-target').value)||50000, 
+                    name: document.getElementById('prof-name').value, 
+                    phone: document.getElementById('prof-phone').value, 
+                    upi: document.getElementById('prof-upi').value, 
+                    invoiceTemplate: document.getElementById('prof-inv-template').value, 
+                    canvaUrl: document.getElementById('prof-canva-url').value, 
+                    terms: document.getElementById('prof-terms').value 
+                };
+                
+                const lockEn = document.getElementById('prof-lock-en');
+                db.settings.appLock = { 
+                    enabled: lockEn ? lockEn.checked : false, 
+                    pin: document.getElementById('prof-lock-pin').value 
+                };
+                
+                saveData(); updateCurrencySymbols(); renderOrders(); showToast('Settings Saved');
+            });
+        }
+
+        const menuAddFormEl = document.getElementById('menuAddForm');
+        if(menuAddFormEl) {
+            menuAddFormEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                db.settings.menu.push({ 
+                    id: generateId(), 
+                    name: document.getElementById('menu-dish-name').value, 
+                    cat: document.getElementById('menu-dish-cat').value, 
+                    price: parseFloat(document.getElementById('menu-dish-price').value), 
+                    cost: parseFloat(document.getElementById('menu-dish-cost').value)||0, 
+                    stock: true 
+                });
+                saveData(); 
+                document.getElementById('menuAddForm').reset(); 
+                safeSetText('menu-dish-margin', '0%'); 
+                renderSettingsMenu(); 
+                showToast('Menu Item Added');
+            });
+        }
+
+        function shareMenuWhatsApp() {
+            let msg = `*${db.settings.profile.name.toUpperCase()} MENU*\n\n`;
+            const inStock = db.settings.menu.filter(m=>m.stock);
+            if(inStock.length === 0) return showToast('No items in stock to share.', 'warning');
+            
+            const cats = [...new Set(inStock.map(m=>m.cat||'General'))];
+            cats.forEach(cat => {
+                msg += `_${cat}_\n`;
+                inStock.filter(m=>m.cat===cat || (!m.cat && cat==='General')).forEach(m => {
+                    msg += `• ${m.name} - ${db.settings.profile.currency}${m.price}\n`;
+                });
+                msg += `\n`;
+            });
+            msg += `To place an order, please reply to this message!`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        // --- BARCODE SCANNER ---
+        let html5QrCode = null;
+        function startBarcodeScanner() {
+            const m = document.getElementById('scanner-modal');
+            if(m) m.classList.remove('hidden-view');
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, onScanSuccess)
+            .catch(err => { console.error(err); showToast("Camera access denied.", "danger"); stopBarcodeScanner(); });
+        }
+        function stopBarcodeScanner() {
+            if(html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => { 
+                    html5QrCode.clear(); 
+                    const m = document.getElementById('scanner-modal');
+                    if(m) m.classList.add('hidden-view'); 
+                }).catch(e => { console.error(e); const m = document.getElementById('scanner-modal'); if(m) m.classList.add('hidden-view'); });
+            } else {
+                const m = document.getElementById('scanner-modal');
+                if(m) m.classList.add('hidden-view');
+            }
+        }
+        function onScanSuccess(decodedText) {
+            if (navigator.vibrate) navigator.vibrate(200);
+            stopBarcodeScanner();
+            const scannedId = decodedText.trim().toUpperCase();
+            const order = db.orders.find(o => o.id.toUpperCase().startsWith(scannedId) || (db.settings.profile.prefix + o.id.substring(0,5).toUpperCase()) === scannedId);
+            if(order) { 
+                showToast("Invoice found!", "success"); 
+                const vo = document.getElementById('view-orders');
+                if(vo && vo.classList.contains('hidden-view')) switchView('orders'); 
+                setTimeout(() => openInvoiceModal(order.id), 300); 
+            }
+            else showToast(`No invoice found for: ${scannedId}`, "danger");
+        }
+
+        // --- EXPORTS ---
+        function exportDataCSV() {
+            let c = "data:text/csv;charset=utf-8,INVOICES/ORDERS\nInvoiceNo,Date,DueDate,Customer,Phone,OrderType,Items(Dish|Qty|Price|Total),Subtotal,DeliveryFee,TaxPercent,Discount,AdvancePaid,GrandTotal,Balance,Status,PaymentMethod\n";
+            db.orders.forEach(o => c += `${db.settings.profile.prefix}${o.id.substring(0,8)},${new Date(o.timestamp).toLocaleDateString()},${o.dueDate?new Date(o.dueDate).toLocaleDateString():''},"${o.customerName}","${o.phone}","${o.type||'Delivery'}","${o.items.map(i => `${i.dish}|${i.qty}|${i.price}|${i.total}`).join(' ; ')}",${o.subtotal||o.total},${o.deliveryFee||0},${o.taxPercent||0},${o.discount||0},${o.advancePaid||0},${o.total},${o.balance||0},${o.status},${o.paymentMethod||''}\n`);
+            
+            c += "\nOTHER INCOME\nDate,Category,Amount,Notes\n";
+            db.income.forEach(x => c += `${x.date},"${x.category}",${x.amount},"${x.notes}"\n`);
+
+            c += "\nEXPENSES\nDate,Category,Amount,Notes\n";
+            db.expenses.forEach(x => c += `${x.date},"${x.category}",${x.amount},"${x.notes}"\n`);
+            
+            c += "\nINVENTORY/MENU\nName,Category,SellingPrice,CostPrice,InStock\n";
+            db.settings.menu.forEach(m => c += `"${m.name}","${m.cat||'General'}",${m.price},${m.cost||0},${m.stock?'Yes':'No'}\n`);
+
+            const l = document.createElement("a"); l.href = encodeURI(c); l.download = `SpiceSync_Report_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(l); l.click(); document.body.removeChild(l); showToast("CSV Exported!");
+        }
+
+        function exportDataJSON() {
+            const l = document.createElement("a"); l.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); l.download = `SpiceSync_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(l); l.click(); document.body.removeChild(l); showToast("Backup Downloaded!");
+        }
+
+        function importData(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const imp = JSON.parse(ev.target.result);
+                    if(imp.orders && imp.expenses) { db = imp; saveData(); initApp(); showToast("Imported!"); } 
+                    else showToast("Invalid format", "danger");
+                } catch (err) { showToast("Parse error", "danger"); }
+            };
+            reader.readAsText(file); e.target.value = '';
+        }
+
+        // --- INIT ---
+        document.addEventListener("DOMContentLoaded", initApp);
+    </script>
+</body>
+</html>
